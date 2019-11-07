@@ -69,7 +69,7 @@ def generator_model(): # 从随机数来生成图片
 def generator_containing_discriminator(generator, discriminator):
     model = Sequential()
     model.add(generator)
-    discriminator.trainable = False # 初始时 判别器 不可被训练 ######################这一行貌似可去掉
+    discriminator.trainable = False # 初始时 判别器 不可被训练,这一行很重要
     model.add(discriminator)
     return model
 
@@ -159,41 +159,11 @@ def generate():
         Image.fromarray(image.astype(np.uint8)).save("image-%s.png" % i) #保存图片
         # break
 
-def imshow(inp, title=None, ax=None):
-    # 在屏幕上绘制图像
-    """Imshow for Tensor."""
-    if inp.size()[0] > 1:
-        inp = inp.numpy().transpose((1, 2, 0))
-    else:
-        inp = inp[0].numpy()
-    mvalue = np.amin(inp)
-    maxvalue = np.amax(inp)
-    if maxvalue > mvalue:
-        inp = (inp - mvalue)/(maxvalue - mvalue)
-    ax.imshow(inp)
-    if title is not None:
-        ax.set_title(title)
-
 if __name__ == "__main__":
     train()
     # generate()
 
-    # import matplotlib.pyplot as plt
-    # batch_size = 64
-    # fig = plt.figure(figsize=(15, 15))
-    # f, axarr = plt.subplots(8, 8, sharex=True, figsize=(15, 15))
-    # for i in range(batch_size):
-    #     axarr[i // 8, i % 8].axis('off')
-    #     imshow(img[i], samples.data.numpy()[i][0, 0, 0].astype(int), axarr[i // 8, i % 8])
-    # plt.show()
 
 
 
-    # plt.figure(figsize=(10, 7))
-    # # 有四个特征图，循环把它们打印出来
-    # for i in range(4):
-    #     plt.subplot(1, 4, i + 1)
-    #     plt.axis('off')
-    #     # feature_maps[0].data.numpy().shape =  (1, 4, 28, 28)
-    #     plt.imshow(feature_maps[0][0, i, ...].data.numpy())
-    # plt.show()
+
