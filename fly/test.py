@@ -22,7 +22,7 @@ class Stuff(object):#原料
     # shape = []  # 形状: 圆形，三角形，四方形
 
 class Plant(object):
-    material = Stuff() #材质
+    material = Stuff() #原料
     talent = [] #天赋
 
 
