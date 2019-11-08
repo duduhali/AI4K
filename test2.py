@@ -34,7 +34,7 @@ def discriminator_model():
     model.add(Dense(1024)) # 全连接层
     model.add(Activation("tanh"))
 
-    model.add(Dense(10)) # 1 个神经元的全连接层
+    model.add(Dense(20))
     model.add(Activation("softmax"))
 
     return model
@@ -90,7 +90,7 @@ def train():
     print(X_train.shape)  # (60000, 28, 28, 1)
     print(y_train.shape)  # (60000,)
     print(y_test.shape)  # (10000,)
-    y_train = np_utils.to_categorical(y_train, 10)  # 独热码
+    y_train = np_utils.to_categorical(y_train, 20)  # 独热码
     print(y_train.shape) #(60000, 10)
 
     # X_train [0, 255]
@@ -126,11 +126,13 @@ def train():
 
             # 连续型均匀分布的随机数据（噪声）
             random_data = np.random.randint(0, 10, BATCH_SIZE)
-            random_data = np_utils.to_categorical(random_data, 10)  # 独热码
-            generated_images = g.predict(random_data, verbose=0) #生成图片数据
+            one_hot_data = np_utils.to_categorical(random_data, 10)  # 独热码
+            generated_images = g.predict(one_hot_data, verbose=0) #生成图片数据
 
             input_batch = np.concatenate((input_batch, generated_images))
-            output_batch = np.concatenate((output_batch, np.full((BATCH_SIZE,10),1/10)))
+            random_data += 10 # x表示真图x，1x表示生成的图x，如：0表示真图0，10表示生成的图0
+            one_hot_1x = np_utils.to_categorical(random_data, 20)
+            output_batch = np.concatenate((output_batch, one_hot_1x))
             # 训练判别器，让它具备识别不合格生成图片的能力
             d_loss = d.train_on_batch(input_batch, output_batch)
 
@@ -140,9 +142,10 @@ def train():
             '''
             # d.trainable = False
             random_data = np.random.randint(0, 10, BATCH_SIZE)
-            random_data = np_utils.to_categorical(random_data, 10)  # 独热码
+            one_hot_data = np_utils.to_categorical(random_data, 10)
+            one_hot_1x = np_utils.to_categorical(random_data, 20) # 独热码
             # 训练生成器，并通过不可被训练的判别器去判别
-            g_loss = d_on_g.train_on_batch(random_data, random_data)
+            g_loss = d_on_g.train_on_batch(one_hot_data, one_hot_1x)
             # d.trainable = True # 恢复判别器可被训练
 
             # 打印损失
