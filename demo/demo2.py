@@ -35,11 +35,12 @@ file_2 = 'E:/AI+4K/SDR_4K(Part1)/10091373.mp4' #23.976023976023978      (3840, 2
 tmp = 'E:/AI+4K/tmp'
 tmp2 = 'E:/AI+4K/tmp2'
 
-# getImg(file_2,'E:/AI+4K/img2/img',5)
-cap = cv2.VideoCapture(file_1)#获取一个视频打开句柄
-print(cap.get(cv2.CAP_PROP_FOURCC)) #编解码的4字-字符代码
-print(cap.get(cv2.CAP_PROP_FRAME_COUNT)) #视频文件中的帧数
-print(cap.get(cv2.CAP_PROP_FORMAT)) #返回对象的格式
+getImg(file_2,'E:/AI+4K/4K_9/img',9)
+
+# cap = cv2.VideoCapture(file_1)#获取一个视频打开句柄
+# print(cap.get(cv2.CAP_PROP_FOURCC)) #编解码的4字-字符代码
+# print(cap.get(cv2.CAP_PROP_FRAME_COUNT)) #视频文件中的帧数
+# print(cap.get(cv2.CAP_PROP_FORMAT)) #返回对象的格式
 
 
 

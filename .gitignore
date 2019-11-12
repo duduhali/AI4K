@@ -1,3 +1,6 @@
 *.npy
 .idea
 *.xml
+PyTorch/data
+PyTorch/data/*
+*.h5

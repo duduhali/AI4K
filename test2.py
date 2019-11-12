@@ -1,7 +1,7 @@
 from keras.models import Sequential
 from keras.layers import Conv2D,Activation,MaxPool2D,Flatten,Dense,BatchNormalization,Reshape,UpSampling2D
 from keras.optimizers import Adam
-
+import matplotlib.pyplot as plt
 from keras.utils import np_utils
 
 import glob
@@ -15,18 +15,16 @@ from keras.datasets import mnist
 def discriminator_model():
     model = Sequential()
     model.add(Conv2D(
-        16, # 过滤器，输出的深度（depth）
-        (3, 3), # 过滤器在二维的大小是
+        64, # 过滤器，输出的深度（depth）
+        (5, 5), # 过滤器在二维的大小是
         padding='same', # same 表示输出的大小不变，因此需要在外围补零2圈
         input_shape=(28, 28, 1) # 输入形状
     ))
     model.add(Activation("tanh")) # 添加 Tanh 激活层
     model.add(MaxPool2D(pool_size=(2, 2))) # 池化层
 
-    model.add(Conv2D(16, (3, 3)))
-    model.add(Activation("tanh"))
 
-    model.add(Conv2D(32, (3, 3)))
+    model.add(Conv2D(64, (5, 5)))
     model.add(Activation("tanh"))
     model.add(MaxPool2D(pool_size=(2, 2)))
 
@@ -46,21 +44,18 @@ def generator_model(): # 从随机数来生成图片
     model.add(Dense(input_dim=10, units=1024))
     model.add(Activation("tanh"))
 
-    model.add(Dense(32 * 7 * 7)) # 全连接层
-    # model.add(BatchNormalization()) # 批标准化
+    model.add(Dense(64 * 7 * 7)) # 全连接层
+    model.add(BatchNormalization()) # 批标准化
     model.add(Activation("tanh"))
 
-    model.add(Reshape((7, 7, 32))) # 7 x 7 像素
+    model.add(Reshape((7, 7, 64))) # 7 x 7 像素
 
     model.add(UpSampling2D(size=(2, 2))) # 14 x 14像素 池化的反操作
-    model.add(Conv2D(32, (3, 3), padding="same"))
-    model.add(Activation("tanh"))
-
-    model.add(Conv2D(16, (3, 3), padding="same"))
+    model.add(Conv2D(64, (5, 5), padding="same"))
     model.add(Activation("tanh"))
 
     model.add(UpSampling2D(size=(2, 2))) # 28 x 28像素
-    model.add(Conv2D(1, (3, 3), padding="same"))
+    model.add(Conv2D(1, (5, 5), padding="same"))
     model.add(Activation("tanh"))
 
     return model
@@ -76,7 +71,7 @@ def generator_containing_discriminator(generator, discriminator):
 
 
 # Hyperparameters 超参数
-EPOCHS = 100
+EPOCHS = 20
 BATCH_SIZE = 1024
 
 #训练模型
@@ -94,7 +89,7 @@ def train():
     print(y_train.shape) #(60000, 10)
 
     # X_train [0, 255]
-    # X_train /= 255 #relu  [0,x]
+    # X_train /= 255 #
     X_train = (X_train - 127.5) / 127.5  # tanh [-1,1]
 
 
@@ -119,6 +114,7 @@ def train():
 
     #判别器，1 为真图  0 为假
     # 开始训练
+    results = []
     for epoch in range(EPOCHS):
         for index in range(int(X_train.shape[0] / BATCH_SIZE)):
             input_batch = X_train[index * BATCH_SIZE : (index + 1) * BATCH_SIZE]
@@ -150,6 +146,7 @@ def train():
 
             # 打印损失
             print("Step %d Generator Loss: %f Discriminator Loss: %f" % (index, g_loss, d_loss))
+            results.append([g_loss, d_loss])
 
         print(epoch)
         # 保存 生成器 和 判别器 的参数
@@ -160,6 +157,15 @@ def train():
             # 以HDF5格式保存权重，不然使用权重时会比较麻烦
             g.save_weights("./generator_weight.h5", True)
             d.save_weights("./discriminator_weight.h5", True)
+
+    # 预测曲线
+    plt.figure(figsize=(10, 7))
+    plt.plot([i[0] for i in results], '.', label='Generator', alpha=0.5)
+    plt.plot([i[1] for i in results], '.', label='Discreminator', alpha=0.5)
+    plt.xlabel('Step')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.show()
 
 # 生成图片
 def generate():
@@ -176,13 +182,13 @@ def generate():
     images = g.predict(input_data, verbose=1)
     # 范围在-1到1之间的矩阵
     images = images * 127.5 + 127.5
+    # images = images * 255
     images = images.reshape((-1,28, 28)).astype(np.uint8)
     # print(image) # 范围在0到255之间的矩阵
     # 用生成的图片数据生成 PNG 图片
     # for i in range(20):
         # Image.fromarray(image.astype(np.uint8)).save("image-%s.png" % i) #保存图片
 
-    import matplotlib.pyplot as plt
     # plt.figure(figsize=(10, 7))
     # for i in range(8):
     #     plt.subplot(2, 4, i + 1)
