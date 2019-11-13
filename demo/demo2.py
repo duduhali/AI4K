@@ -27,7 +27,7 @@ def getImg(file,img,leve=0):
     return
 
 file_1 = 'E:/AI+4K/SDR_540p/10091373.mp4'       #30.0                   (960, 540)
-file_2 = 'E:/AI+4K/SDR_4K(Part1)/10091373.mp4' #23.976023976023978      (3840, 2160)
+file_2 = 'E:/AI+4K/SDR_4K(Part1)/10091373.mp4' #23.976023976023978      (3840, 2160)  3840/960 = 2160/540 = 4
 
 # file_1 = 'E:/AI+4K/SDR_540p/10099858.mp4'
 # file_2 = 'E:/AI+4K/SDR_4K(Part1)/10099858.mp4'
