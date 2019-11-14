@@ -3,7 +3,7 @@
 import os
 import cv2
 
-file_dir = 'E:/AI + 4K HDR 赛项/SDR_540p'
+file_dir = 'E:/SDR_4K'
 #file:10091373.mp4, fps:30.0, width:960.0, height:540.0
 
 # file_dir = 'E:/AI + 4K HDR 赛项/SDR_4K(Part1)'
