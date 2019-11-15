@@ -27,9 +27,6 @@ ffmpeg -i ./videos/$folder/$file -vsync 0 ./$png_path/$folder/${bname}%4d.png -y
 done
 done
 
-gt
-ffmpeg -i ./videos/gt/10091373.mp4 -vsync 0 ./pngs/gt/10091373%4d.png -y
-X4
-ffmpeg -i ./videos/X4/10091373.mp4 -vsync 0 ./pngs/X4/10091373%4d.png -y
+
 
 
