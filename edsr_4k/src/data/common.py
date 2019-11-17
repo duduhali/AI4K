@@ -1,7 +1,7 @@
 import random
 
 import numpy as np
-import skimage.color as sc
+import skimage.color as sc   #Scikit-Image 库
 
 import torch
 
