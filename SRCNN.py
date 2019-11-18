@@ -36,6 +36,19 @@ class SRCNN(nn.Module):
 		out = self.conv4(out)
 		return out
 
+class SRCNN2(nn.Module):
+	def __init__(self):
+		super(SRCNN, self).__init__()
+        #对YCrCb颜色空间中的Y通道进行重建
+		self.conv1 = nn.Conv2d(1, 64, kernel_size=9);
+		self.conv2 = nn.Conv2d(64, 32, kernel_size=1);
+		self.conv3 = nn.Conv2d(32, 1, kernel_size=5);
+	def forward(self, img):
+		out = F.relu(self.conv1(img))
+		out = F.relu(self.conv2(out))
+		out = F.linear(self.conv3(out))
+		return out
+
 
 EPOCHS = 4
 BATCH_SIZE = 32
