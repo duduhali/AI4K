@@ -75,4 +75,4 @@ def scale_big2():
 
     pic.save('E:/test/H2_pic.png')
 
-scale_big2()
+# scale_big2()
