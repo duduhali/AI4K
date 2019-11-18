@@ -38,7 +38,7 @@ class SRCNN(nn.Module):
 
 
 EPOCHS = 4
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 sizeL = (960, 540)
 sizeH = (3840, 2160)
 learn_rate = 0.0001
@@ -66,8 +66,11 @@ transform_data = transforms.Compose([  # transforms.RandomHorizontalFlip(),
 def transform_file(input_batch_file,output_batch_file):
     imgLR = []
     imgHR = []
-    the_size1 = (240,135) #print((960/4, 540/4)) #(240.0, 135.0)
-    the_size2 = (960, 540)
+    # print((960/4, 540/4)) #(240.0, 135.0)
+    # print((960 / 2, 540 / 2))  # (480.0, 270.0)
+    the_size1 = (480,270)
+    # print((3840 / 2, 2160 / 2))  # (1920.0, 1080.0)
+    the_size2 = (1920, 1080)
     for input_file,output_file in zip(input_batch_file,output_batch_file):
         # print(input_file,output_file)
         img = Image.open(input_file)
@@ -101,8 +104,8 @@ for epoch in range(EPOCHS):
         if use_cuda:
             imgLR = imgLR.cuda()
             imgHR = imgLR.cuda()
-
         train(index,imgLR, imgHR)
+
     #     loss_epoch.append(loss/BATCH_SIZE)
     #     print(loss_epoch)
     #     print(np.mean(loss_epoch))
