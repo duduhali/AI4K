@@ -4,3 +4,4 @@
 PyTorch/data
 PyTorch/data/*
 *.h5
+*.hdf5

@@ -56,7 +56,7 @@ if __name__ == '__main__':
     lr = imgLR[0]
     hr = imgHR[0]
 
-    lr_img = lr.data.numpy().transpose((1, 2, 0))
+    lr_img = lr.data.numpy().transpose((1, 2, 0)) #改变维度，为了让matplotlib显示图片
     print(lr_img.shape)
     plt.imshow(lr_img)
     plt.show()

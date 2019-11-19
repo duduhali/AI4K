@@ -1,5 +1,3 @@
-from PIL import ImageFilter as IF
-import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,7 +8,7 @@ import glob
 import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
-
+import random
 
 LR = 'E:/AI+4K/pngs/X4'  #(960, 540)
 HR = 'E:/AI+4K/pngs/gt'  #(3840, 2160)  3840/960 = 2160/540 = 4
@@ -34,19 +32,6 @@ class SRCNN(nn.Module):
 		out = F.relu(self.conv2(out))
 		out = F.relu(self.conv3(out))
 		out = self.conv4(out)
-		return out
-
-class SRCNN2(nn.Module):
-	def __init__(self):
-		super(SRCNN, self).__init__()
-        #对YCrCb颜色空间中的Y通道进行重建
-		self.conv1 = nn.Conv2d(1, 64, kernel_size=9);
-		self.conv2 = nn.Conv2d(64, 32, kernel_size=1);
-		self.conv3 = nn.Conv2d(32, 1, kernel_size=5);
-	def forward(self, img):
-		out = F.relu(self.conv1(img))
-		out = F.relu(self.conv2(out))
-		out = F.linear(self.conv3(out))
 		return out
 
 
@@ -77,28 +62,41 @@ transform_data = transforms.Compose([  # transforms.RandomHorizontalFlip(),
                                         transforms.ToTensor(), #会把 0-255  压缩到  0-1
                                         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]) ])
 def transform_file(input_batch_file,output_batch_file):
+    widthNum, heightNum = 2, 2  # 切成几块
     imgLR = []
     imgHR = []
-    # print((960/4, 540/4)) #(240.0, 135.0)
-    # print((960 / 2, 540 / 2))  # (480.0, 270.0)
-    the_size1 = (480,270)
-    # print((3840 / 2, 2160 / 2))  # (1920.0, 1080.0)
-    the_size2 = (1920, 1080)
     for input_file,output_file in zip(input_batch_file,output_batch_file):
-        # print(input_file,output_file)
-        img = Image.open(input_file)
-        # img = img.resize(sizeH, Image.BICUBIC) #双三次插值
-        img = img.resize(the_size1, Image.BICUBIC) # test
-        imgLR.append(transform_data(img).numpy())
-
+        img1 = Image.open(input_file).resize(sizeH, Image.BICUBIC)
         img2 = Image.open(output_file)
-        img2 = img2.resize(the_size2, Image.BICUBIC)  #  test
+        # 旋转
+        # angle = random.randrange(0, 90)   #角度
+        # print('angle',angle)
+        # img1 = img1.rotate(angle)
+        # img2 = img2.rotate(angle)
+        # 剪切
+        oneWidth, oneHeight = int(sizeH[0]/widthNum), int(sizeH[1]/heightNum)
+        startWidth, startHeight = random.randrange(0, sizeH[0]-oneWidth), random.randrange(0, sizeH[1]-oneHeight)
+        print('startWidth, startHeight',startWidth, startHeight)
+        x1,y1,x2,y2 = startWidth, startHeight, startWidth+oneWidth, startHeight+oneHeight
+        img1 = img1.crop((x1,y1,x2,y2))
+        img2 = img2.crop((x1,y1,x2,y2))
+
+        # 水平反转
+        if random.choice([0, 1]) == 1:
+            img1 = img1.transpose(Image.FLIP_LEFT_RIGHT)
+            img2 = img2.transpose(Image.FLIP_LEFT_RIGHT)
+        # 垂直反转
+        if random.choice([0, 0, 1]) == 1:
+            img1 = img1.transpose(Image.FLIP_TOP_BOTTOM)
+            img2 = img2.transpose(Image.FLIP_TOP_BOTTOM)
+
+        imgLR.append(transform_data(img1).numpy())
         imgHR.append(transform_data(img2).numpy())
 
     imgLR = torch.FloatTensor(imgLR)
     imgHR = torch.FloatTensor(imgHR)
-    print(imgLR.shape) #torch.Size([4, 3, 2160, 3840])
-    print(imgHR.shape)
+    # print(imgLR.shape) #torch.Size([4, 3, 2160, 3840])
+    # print(imgHR.shape)
     return imgLR,imgHR
 
 record = []
