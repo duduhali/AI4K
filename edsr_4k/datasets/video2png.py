@@ -3,10 +3,8 @@ import subprocess
 
 
 
-# png_path="E:/AI+4K/pngs"
-# video_path = "E:/AI+4K/videos"
-png_path="E:/test/pngs"
-video_path = "E:/test/videos"
+png_path="J:/AI+4K/pngs"
+video_path = "J:/AI+4K/videos"
 
 
 #建立图片的目录
