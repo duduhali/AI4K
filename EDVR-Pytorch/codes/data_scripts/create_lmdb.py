@@ -516,5 +516,5 @@ def test_lmdb(dataroot, dataset='REDS'):
 
 if __name__ == "__main__":
     # main()
-    # OURS(mode="input")
+    OURS(mode="input")
     OURS(mode="gt")

@@ -4,6 +4,7 @@ logger = logging.getLogger('base')
 
 def create_model(opt):
     model = opt['model']
+    print('model',model)
     # image restoration
     if model == 'sr':  # PSNR-oriented super resolution
         from .SR_model import SRModel as M

@@ -15,7 +15,6 @@ logger = logging.getLogger('base')
 class VideoBaseModel(BaseModel):
     def __init__(self, opt):
         super(VideoBaseModel, self).__init__(opt)
-
         if opt['dist']:
             self.rank = torch.distributed.get_rank()
         else:

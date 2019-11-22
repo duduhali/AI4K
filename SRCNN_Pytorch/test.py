@@ -63,3 +63,6 @@ if __name__ == '__main__':
     output = np.clip(convert_ycbcr_to_rgb(output), 0.0, 255.0).astype(np.uint8)
     output = pil_image.fromarray(output)
     output.save(args.image_file.replace('.', '_srcnn_x{}.'.format(args.scale)))
+
+
+#C:\Python37\python test.py --weights-file outputs/x3/best.pth --image-file data/one.png --scale 3

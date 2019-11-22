@@ -28,9 +28,10 @@ def edvr(f,f_tag):
 
         getImg(folder_file,sub_folder)
 
-gt = 'E:/videos/gt'
-gt_tag = 'D:/WorkPreject/AI4K/EDVR-Pytorch/datasets/gt'
-input = 'E:/videos/input'
-input_tag = 'D:/WorkPreject/AI4K/EDVR-Pytorch/datasets/input'
+gt = 'J:/AI+4K/test/gt'
+gt_tag = 'F:/PycharmProjects/AI4K/EDVR-Pytorch/datasets/train/gt'
+input = 'J:/AI+4K/test/input'
+input_tag = 'F:/PycharmProjects/AI4K/EDVR-Pytorch/datasets/train/input'
+edvr(gt,gt_tag)
 edvr(input,input_tag)
 

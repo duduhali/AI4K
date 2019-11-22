@@ -34,3 +34,12 @@ class EvalDataset(Dataset):
     def __len__(self):
         with h5py.File(self.h5_file, 'r') as f:
             return len(f['lr'])
+
+
+if __name__ == '__main__':
+    from torch.utils.data.dataloader import DataLoader
+    eval_dataset = EvalDataset('J:/AI+4K/pngs_cut20_eval.hdf5')
+    eval_dataloader = DataLoader(dataset=eval_dataset, batch_size=1)
+    for data in eval_dataloader:
+        inputs, labels = data
+        print(inputs, labels)

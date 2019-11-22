@@ -19,20 +19,33 @@ from datasets import TrainDataset, EvalDataset
 from utils import AverageMeter, calc_psnr
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--train-file', type=str, required=True)
-    parser.add_argument('--eval-file', type=str, required=True)
-    parser.add_argument('--outputs-dir', type=str, required=True)
-    parser.add_argument('--scale', type=int, default=3)
-    parser.add_argument('--lr', type=float, default=1e-4)
-    parser.add_argument('--batch-size', type=int, default=16)
-    parser.add_argument('--num-workers', type=int, default=0)
-    parser.add_argument('--num-epochs', type=int, default=400)
-    parser.add_argument('--seed', type=int, default=123)
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('--train-file', type=str, required=True)
+    # parser.add_argument('--eval-file', type=str, required=True)
+    # parser.add_argument('--outputs-dir', type=str, required=True)
+    # parser.add_argument('--scale', type=int, default=3)
+    # parser.add_argument('--lr', type=float, default=1e-4)
+    # parser.add_argument('--batch-size', type=int, default=16)
+    # parser.add_argument('--num-workers', type=int, default=0)
+    # parser.add_argument('--num-epochs', type=int, default=400)
+    # parser.add_argument('--seed', type=int, default=123)
+    # args = parser.parse_args()
+
+    class ABC(object):
+        pass
+    args = ABC()
+    args.train_file = 'J:/AI+4K/pngs_cut20.hdf5'
+    args.eval_file = 'J:/AI+4K/pngs_cut20_eval.hdf5'
+    args.outputs_dir = 'weights'
+    args.scale = 4
+    args.lr = 1e-4
+    args.batch_size = 16
+    args.num_workers = 4
+    args.num_epochs = 100
+    args.seed = 123
+
 
     args.outputs_dir = os.path.join(args.outputs_dir, 'x{}'.format(args.scale))
-
     if not os.path.exists(args.outputs_dir):
         os.makedirs(args.outputs_dir)
 
@@ -73,7 +86,6 @@ if __name__ == '__main__':
 
             for data in train_dataloader:
                 inputs, labels = data
-
                 inputs = inputs.to(device)
                 labels = labels.to(device)
 
@@ -88,8 +100,8 @@ if __name__ == '__main__':
 
                 t.set_postfix(loss='{:.6f}'.format(epoch_losses.avg))
                 t.update(len(inputs))
-
-        torch.save(model.state_dict(), os.path.join(args.outputs_dir, 'epoch_{}.pth'.format(epoch)))
+        if epoch%10 == 9:
+            torch.save(model.state_dict(), os.path.join(args.outputs_dir, 'epoch_{}.pth'.format(epoch)))
 
         model.eval()
         epoch_psnr = AverageMeter()
