@@ -1,6 +1,5 @@
 import torch.nn as nn
-import torch.nn.functional as F
-
+import torch
 
 class Net(nn.Module):
     def __init__(self, upscale_factor):
@@ -12,12 +11,12 @@ class Net(nn.Module):
         self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
 
     def forward(self, x):
-        x = F.tanh(self.conv1(x))
-        x = F.tanh(self.conv2(x))
-        x = F.sigmoid(self.pixel_shuffle(self.conv3(x)))
+        x = torch.tanh(self.conv1(x))
+        x = torch.tanh(self.conv2(x))
+        x = torch.sigmoid(self.pixel_shuffle(self.conv3(x)))
         return x
 
 
 if __name__ == "__main__":
-    model = Net(upscale_factor=3)
+    model = Net(upscale_factor=4)
     print(model)

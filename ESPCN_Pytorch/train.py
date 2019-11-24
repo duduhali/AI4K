@@ -3,18 +3,18 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torchnet as tnt
 import torchvision.transforms as transforms
 from torch.autograd import Variable
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
+from torchnet.meter import AverageValueMeter
 from torchnet.engine import Engine
 from torchnet.logger import VisdomPlotLogger
 from tqdm import tqdm
 
-from data_utils import DatasetFromFolder
-from model import Net
-from psnrmeter import PSNRMeter
+from ESPCN_Pytorch.data_utils import DatasetFromFolder
+from ESPCN_Pytorch.model import Net
+from ESPCN_Pytorch.psnrmeter import PSNRMeter
 
 
 def processor(sample):
@@ -42,7 +42,8 @@ def reset_meters():
 
 def on_forward(state):
     meter_psnr.add(state['output'].data, state['sample'][1])
-    meter_loss.add(state['loss'].data[0])
+    meter_loss.add(state['loss'].item())
+
 
 
 def on_start_epoch(state):
@@ -72,20 +73,24 @@ def on_end_epoch(state):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description='Train Super Resolution')
-    parser.add_argument('--upscale_factor', default=3, type=int, help='super resolution upscale factor')
-    parser.add_argument('--num_epochs', default=100, type=int, help='super resolution epochs number')
-    opt = parser.parse_args()
-
-    UPSCALE_FACTOR = opt.upscale_factor
-    NUM_EPOCHS = opt.num_epochs
-
-    train_set = DatasetFromFolder('data/train', upscale_factor=UPSCALE_FACTOR, input_transform=transforms.ToTensor(),
+    # parser = argparse.ArgumentParser(description='Train Super Resolution')
+    # parser.add_argument('--upscale_factor', default=3, type=int, help='super resolution upscale factor')
+    # parser.add_argument('--num_epochs', default=100, type=int, help='super resolution epochs number')
+    # opt = parser.parse_args()
+    # UPSCALE_FACTOR = opt.upscale_factor
+    # NUM_EPOCHS = opt.num_epochs
+    UPSCALE_FACTOR = 4
+    NUM_EPOCHS = 5
+    BATCH_SIZE = 32
+    num_workers = 1
+    train_path = 'J:/AI+4K/pngs_cut20/train'
+    val_path = 'J:/AI+4K/pngs_cut20/val'
+    train_set = DatasetFromFolder(train_path, input_transform=transforms.ToTensor(),
                                   target_transform=transforms.ToTensor())
-    val_set = DatasetFromFolder('data/val', upscale_factor=UPSCALE_FACTOR, input_transform=transforms.ToTensor(),
+    val_set = DatasetFromFolder(val_path,input_transform=transforms.ToTensor(),
                                 target_transform=transforms.ToTensor())
-    train_loader = DataLoader(dataset=train_set, num_workers=4, batch_size=64, shuffle=True)
-    val_loader = DataLoader(dataset=val_set, num_workers=4, batch_size=64, shuffle=False)
+    train_loader = DataLoader(dataset=train_set, num_workers=num_workers, batch_size=BATCH_SIZE, shuffle=True)
+    val_loader = DataLoader(dataset=val_set, num_workers=num_workers, batch_size=BATCH_SIZE, shuffle=False)
 
     model = Net(upscale_factor=UPSCALE_FACTOR)
     criterion = nn.MSELoss()
@@ -99,7 +104,7 @@ if __name__ == "__main__":
     scheduler = MultiStepLR(optimizer, milestones=[30, 80], gamma=0.1)
 
     engine = Engine()
-    meter_loss = tnt.meter.AverageValueMeter()
+    meter_loss = AverageValueMeter()
     meter_psnr = PSNRMeter()
 
     train_loss_logger = VisdomPlotLogger('line', opts={'title': 'Train Loss'})

@@ -35,12 +35,14 @@ def target_transform(crop_size):
 
 
 class DatasetFromFolder(Dataset):
-    def __init__(self, dataset_dir, upscale_factor, input_transform=None, target_transform=None):
+    def __init__(self, image_filenames,target_filenames, input_transform=None, target_transform=None):
         super(DatasetFromFolder, self).__init__()
-        self.image_dir = dataset_dir + '/SRF_' + str(upscale_factor) + '/data'
-        self.target_dir = dataset_dir + '/SRF_' + str(upscale_factor) + '/target'
-        self.image_filenames = [join(self.image_dir, x) for x in listdir(self.image_dir) if is_image_file(x)]
-        self.target_filenames = [join(self.target_dir, x) for x in listdir(self.target_dir) if is_image_file(x)]
+        # self.image_dir = dataset_dir + '/X4'
+        # self.target_dir = dataset_dir + '/gt'
+        # self.image_filenames = [join(self.image_dir, x) for x in listdir(self.image_dir) if is_image_file(x)]
+        # self.target_filenames = [join(self.target_dir, x) for x in listdir(self.target_dir) if is_image_file(x)]
+        self.image_filenames = image_filenames
+        self.target_filenames = target_filenames
         self.input_transform = input_transform
         self.target_transform = target_transform
 
@@ -89,10 +91,18 @@ def generate_dataset(data_type, upscale_factor):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Generate Super Resolution Dataset')
-    parser.add_argument('--upscale_factor', default=3, type=int, help='super resolution upscale factor')
-    opt = parser.parse_args()
-    UPSCALE_FACTOR = opt.upscale_factor
+    # parser = argparse.ArgumentParser(description='Generate Super Resolution Dataset')
+    # parser.add_argument('--upscale_factor', default=4, type=int, help='super resolution upscale factor')
+    # opt = parser.parse_args()
+    # UPSCALE_FACTOR = opt.upscale_factor
+    #
+    # generate_dataset(data_type='train', upscale_factor=UPSCALE_FACTOR)
+    # generate_dataset(data_type='val', upscale_factor=UPSCALE_FACTOR)
 
-    generate_dataset(data_type='train', upscale_factor=UPSCALE_FACTOR)
-    generate_dataset(data_type='val', upscale_factor=UPSCALE_FACTOR)
+    import torchvision.transforms as transforms
+    train_path = 'J:/AI+4K/pngs_cut20/train'
+    val_path = 'J:/AI+4K/pngs_cut20/val'
+    train_set = DatasetFromFolder(train_path, input_transform=transforms.ToTensor(),
+                                  target_transform=transforms.ToTensor())
+    val_set = DatasetFromFolder(val_path, input_transform=transforms.ToTensor(),
+                                target_transform=transforms.ToTensor())

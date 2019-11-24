@@ -19,7 +19,7 @@ class PSNRMeter(meter.Meter):
             target = torch.from_numpy(target)
         output = output.cpu()
         target = target.cpu()
-        self.n += output.numel()
+        self.n += output.numel() #返回元素数目
         self.sesum += torch.sum((output - target) ** 2)
 
     def value(self):

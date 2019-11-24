@@ -10,8 +10,8 @@ import torch.backends.cudnn as cudnn
 import numpy as np
 import PIL.Image as pil_image
 
-from model import SRCNN
-from utils import convert_rgb_to_ycbcr, convert_ycbcr_to_rgb, calc_psnr
+from SRCNN_Pytorch.model import SRCNN
+from SRCNN_Pytorch.utils import convert_rgb_to_ycbcr, convert_ycbcr_to_rgb, calc_psnr
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

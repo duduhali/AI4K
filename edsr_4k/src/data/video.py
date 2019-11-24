@@ -33,7 +33,7 @@ class Video(data.Dataset):
 
             return lr_t, -1, '{}_{:0>5}'.format(self.filename, self.n_frames)
         else:
-            vidcap.release()
+            self.vidcap.release()
             return None
 
     def __len__(self):

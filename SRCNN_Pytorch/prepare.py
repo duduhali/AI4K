@@ -8,7 +8,7 @@ import glob
 import h5py
 import numpy as np
 import PIL.Image as pil_image
-from utils import convert_rgb_to_y
+from SRCNN_Pytorch.utils import convert_rgb_to_y
 
 
 def train(args):
