@@ -29,7 +29,7 @@ if __name__ == "__main__":
     # NUM_EPOCHS = opt.num_epochs
     UPSCALE_FACTOR = 4
     EPOCHS = 100
-    BATCH_SIZE = 128
+    BATCH_SIZE = 256
     num_workers = 4
     LR = 'J:/AI+4K/pngs_cut20/X4'  # (960, 540)
     HR = 'J:/AI+4K/pngs_cut20/gt'  # (3840, 2160)  3840/960 = 2160/540 = 4
