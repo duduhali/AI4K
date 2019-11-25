@@ -20,6 +20,8 @@ def transform(img_path,video_path):
     for name in name_list:
         src = '{}/{}%4d.png'.format(img_path,name)
         dst = '{}/{}.mp4'.format(video_path,name)
+        if os.path.exists(dst):
+            continue
         cmd_encoder = 'ffmpeg -r 24000/1001 -i '+ src + '  -vcodec libx265 -pix_fmt yuv422p -crf 10 ' + dst
         print(cmd_encoder)
         # ffmpeg -r 24000/1001 -i J:/output/16536366%4d.png  -vcodec libx265 -pix_fmt yuv422p -crf 10 J:/submission/16536366.mp4
@@ -53,10 +55,10 @@ def getVideoSize(video_path):
 
 
 if __name__ == '__main__':
-    img_path = 'J:/output1'
-    video_path = 'J:/SRCNN'
-    # transform(img_path, video_path)
-    getVideoSize(video_path)
+    img_path = 'J:/img_H'
+    video_path = 'J:/ESPCN'
+    # transform(img_path, video_path) #合成视频
+    getVideoSize(video_path) #检测视频
 
 
 

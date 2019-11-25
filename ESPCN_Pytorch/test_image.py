@@ -47,8 +47,8 @@ def test_one():
 def word():
     UPSCALE_FACTOR = 4
     MODEL_NAME = 'epochs/epoch_99_.pth'
-    image_path = 'J:/img_540p'
-    out_path = 'J:/espcn'
+    image_path = 'J:/img_L'
+    out_path = 'J:/img_H'
     model = Net(upscale_factor=UPSCALE_FACTOR)
     if torch.cuda.is_available():
         model = model.cuda()
