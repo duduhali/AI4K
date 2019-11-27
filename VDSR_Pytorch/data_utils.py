@@ -2,42 +2,32 @@ from PIL import Image
 from torch.utils.data.dataset import Dataset
 from torchvision.transforms import Compose, CenterCrop, Resize
 import torch
+import random
 
 def calc_psnr(img1, img2):
     return 10. * torch.log10(1. / torch.mean((img1 - img2) ** 2))
 
 
-def input_transform(crop_size,upscale_factor):
-    return Compose([
-        CenterCrop(crop_size),
-        # Resize(crop_size//upscale_factor, interpolation=Image.BICUBIC)
-    ])
-
-def target_transform(crop_size):
-    return Compose([
-        CenterCrop(crop_size)
-    ])
-
 class DatasetFromFolder(Dataset):
     def __init__(self, image_filenames,target_filenames, input_transform=None, target_transform=None):
         super(DatasetFromFolder, self).__init__()
-        # self.image_dir = dataset_dir + '/X4'
-        # self.target_dir = dataset_dir + '/gt'
-        # self.image_filenames = [join(self.image_dir, x) for x in listdir(self.image_dir) if is_image_file(x)]
-        # self.target_filenames = [join(self.target_dir, x) for x in listdir(self.target_dir) if is_image_file(x)]
         self.image_filenames = image_filenames
         self.target_filenames = target_filenames
         self.input_transform = input_transform
         self.target_transform = target_transform
 
     def __getitem__(self, index):
-        image, _, _ = Image.open(self.image_filenames[index]).convert('YCbCr').split()
-        target, _, _ = Image.open(self.target_filenames[index]).convert('YCbCr').split()
-        if self.input_transform:
-            image = self.input_transform(image)
-        if self.target_transform:
-            target = self.target_transform(target)
-
+        try:
+            image, _, _ = Image.open(self.image_filenames[index]).convert('YCbCr').split()
+            target, _, _ = Image.open(self.target_filenames[index]).convert('YCbCr').split()
+            if self.input_transform:
+                image = self.input_transform(image)
+            if self.target_transform:
+                target = self.target_transform(target)
+        except Exception as e:
+            random_sum = random.randrange(0, len(self.image_filenames))
+            print(index,random_sum,'出现异常',e.__str__())
+            return self.__getitem__(random_sum)
         return image, target
 
     def __len__(self):

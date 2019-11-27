@@ -20,7 +20,7 @@ def adjust_learning_rate(epoch):
 
 EPOCHS = 100
 BATCH_SIZE = 8
-num_workers = 0
+num_workers = 4
 
 momentum = 0.9
 weight_decay = 1e-4
@@ -45,12 +45,12 @@ if __name__ == "__main__":
 
     L_files = np.array(L_files)
     H_files = np.array(H_files)
-    train_val_scale = 0.9
+    train_val_scale = 0.95
     train_L = L_files[0:int(len(L_files) * train_val_scale)]
     train_H = H_files[0:int(len(H_files) * train_val_scale)]
     val_L = L_files[int(len(L_files) * train_val_scale):]
     val_H = H_files[int(len(H_files) * train_val_scale):]
-
+    print(len(train_L),len(val_L))
     train_set = DatasetFromFolder(train_L, train_H, input_transform=Compose(
         [Resize((216, 384), interpolation=Image.BICUBIC), transforms.ToTensor()]),
                                   target_transform=transforms.ToTensor())
@@ -120,7 +120,9 @@ if __name__ == "__main__":
 
             with torch.no_grad():
                 preds = model(inputs).clamp(0.0, 1.0)
-            epoch_psnr.add(calc_psnr(preds, labels), len(inputs))
+            preds = preds.cpu()
+            labels = labels.cpu()
+            epoch_psnr.add(calc_psnr(preds, labels), len(labels))
 
         print('eval psnr: {:.2f}'.format(epoch_psnr.value()[0]))
 
