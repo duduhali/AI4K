@@ -5,46 +5,35 @@ import os.path as osp
 import glob
 import numpy as np
 import torch
-from utils import Logger
+import tqdm
 import torch.backends.cudnn as cudnn
 from collections import OrderedDict
 import torch.optim as optim
 import torch.nn as nn
 from torch.utils.data import DataLoader
+from torch.autograd import Variable
 
 from model.rcan import RCAN
 from dataloder import DatasetLoaderWithHR, DatasetLoader
-from utils import save_checkpoint, train
+from utils import save_checkpoint, AverageMeter,psnr_cal
 
 
 def main(arg):
-    # sys.stdout = Logger(osp.join(args.logs_dir, 'log_1109_rcan.txt'))
-    print("====>> Read file list")
-    file_name = sorted(os.listdir(arg.VIDEO4K_LR))
-    lr_list = []
-    hr_list = []
-    for fi in file_name:
-        lr_tmp = sorted(glob.glob(arg.VIDEO4K_LR + '/' + fi + '/*.png'))
-        lr_list.extend(lr_tmp)
-        hr_tmp = sorted(glob.glob(arg.VIDEO4K_HR + '/' + fi + '/*.png'))
-        if len(hr_tmp) != 100:
-            print(fi)
-        hr_list.extend(hr_tmp)
+    print("===> Loading datasets")
+    lr_list = glob.glob(os.path.join(args.data_lr, '*'))
+    hr_list = glob.glob(os.path.join(args.data_hr, '*'))
+    data_set = DatasetLoader(lr_list, hr_list, arg.patch_size, arg.scale)
+    train_loader = DataLoader(data_set, batch_size=arg.batch_size, num_workers=arg.workers, shuffle=True,
+                              pin_memory=True, drop_last=True)
 
+
+    print("===> Building model")
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
-    print(len(lr_list))
-    print(len(hr_list))
     cudnn.benchmark = True
 
-    print("===> Loading datasets")
-    data_set = DatasetLoader(lr_list, hr_list, arg.patch_size, arg.scale)
-    train_loader = DataLoader(data_set, batch_size=arg.batch_size,
-                              num_workers=arg.workers, shuffle=True, pin_memory=True)
-
-    print("===> Building model")
-    device_ids = [0,1]
+    device_ids = list(range(args.gpus))
     model = RCAN(arg)
     criterion = nn.L1Loss(size_average=False)
 
@@ -62,20 +51,60 @@ def main(arg):
             for k, v in checkpoint.items():
                 namekey = 'module.' + k  # remove `module.`
                 new_state_dict[namekey] = v
-            # load params
             model.load_state_dict(new_state_dict)
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
+
 
     print("===> Setting Optimizer")
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
                            lr=arg.lr, weight_decay=arg.weight_decay, betas=(0.9, 0.999), eps=1e-08)
 
     print("===> Training")
-
     for epoch in range(args.start_epoch, args.epochs):
         adjust_lr(optimizer, epoch)
-        train(train_loader, optimizer, model, criterion, epoch, arg, len(hr_list), )
+        model.train()
+        losses = AverageMeter()
+        psnrs = AverageMeter()
+        with tqdm(total=(len(data_set) - len(data_set) % args.batch_size)) as t:
+            t.set_description('epoch:{}/{} lr={}'.format(epoch, args.epochs - 1, optimizer.param_groups[0]["lr"]))
+
+            for data in train_loader:
+                data_x, data_y = Variable(data[0]), Variable(data[1], requires_grad=False)
+
+                data_x = data_x.type(torch.FloatTensor)
+                data_y = data_y.type(torch.FloatTensor)
+
+                data_x = data_x.cuda()
+                data_y = data_y.cuda()
+
+                pred = model(data_x)
+                # pix loss
+                loss = criterion(pred, data_y)
+
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                pred = pred.cpu()
+                pred = pred.detach().numpy().astype(np.float32)
+
+                data_y = data_y.cpu()
+                data_y = data_y.numpy().astype(np.float32)
+
+                psnr = psnr_cal(pred, data_y)
+
+                mean_loss = loss.item() / (args.batch_size * args.n_colors * ((args.patch_size * args.scale) ** 2))
+                losses.update(mean_loss)
+                psnrs.update(psnr)
+
+                t.set_postfix(loss='Loss: {losses.val:.3f} ({losses.avg:.3f})'
+                                   ' PNSR: {psnrs.val:.3f} ({psnrs.avg:.3f})'
+                              .format(losses=losses, psnrs=psnrs))
+
+                t.update(len(data[0]))
+
+
         save_checkpoint(model, epoch)
 
 
@@ -98,6 +127,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--step_batch_size', default=1, type=int)
     parser.add_argument('--workers', default=16, type=int)
+    parser.add_argument('--gpus', type=int, default=2)
     parser.add_argument('--seed', default=123, type=int)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--weight_decay', type=float, default=1e-4)
@@ -118,14 +148,11 @@ if __name__ == '__main__':
                         help='number of feature maps reduction')
 
     # path
-    parser.add_argument('--VIDEO4K_LR', type=str, metavar='PATH',
-                        default='/home/ubuntu/data/lr')
-    parser.add_argument('--VIDEO4K_HR', type=str, metavar='PATH',
-                        default='/home/ubuntu/data/hr')
+    parser.add_argument('--data-lr', type=str, metavar='PATH',default='/home/ubuntu/img_lr')
+    parser.add_argument('--data-hr', type=str, metavar='PATH',default='/home/ubuntu/img_hr')
 
     # check point
     parser.add_argument("--resume", default='', type=str)
-    parser.add_argument('--print_freq', default=100, type=int)
     parser.add_argument("--logs_dir", default='log/', type=str)
 
     args = parser.parse_args()

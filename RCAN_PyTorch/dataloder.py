@@ -2,11 +2,11 @@ import random
 import numpy as np
 import cv2
 import torch
-import torch.utils.data as data
+from torch.utils.data import Dataset
 from utils import horizontal_flip
+import os
 
-
-class DatasetLoader(data.Dataset):
+class DatasetLoader(Dataset):
     def __init__(self, lr_list, hr_list, patch_size, scale):
         super(DatasetLoader, self).__init__()
         self.lr_list = lr_list
@@ -56,7 +56,7 @@ class DatasetLoader(data.Dataset):
         return img_lr, img_gt
 
 
-class DatasetLoaderWithHR(data.Dataset):
+class DatasetLoaderWithHR(Dataset):
     def __init__(self, lr_list, fake_list, hr_list, patch_size, scale):
         super(DatasetLoaderWithHR, self).__init__()
         self.lr_list = lr_list
@@ -121,3 +121,21 @@ class DatasetLoaderWithHR(data.Dataset):
             img_lr = torch.from_numpy(np.ascontiguousarray(np.transpose(img_lr, (2, 0, 1)))).float()
             img_fake = torch.from_numpy(np.ascontiguousarray(np.transpose(img_fake, (2, 0, 1)))).float()
             return img_lr, img_fake, img_gt
+
+
+class EvalDataset(Dataset):
+    def __init__(self, img_path):
+        super(EvalDataset, self).__init__()
+        self.files_list = os.listdir(img_path)
+        self.img_path = img_path
+
+    def __getitem__(self, idx):
+        img_file = self.files_list[idx]
+        img = cv2.imread(os.path.join(self.img_path,img_file), cv2.IMREAD_COLOR)
+        img = img * 1.0
+        # BGR -> RGB : [2, 1, 0]     HWC to CHW : (2, 0, 1)
+        img = torch.from_numpy(np.transpose(img[:, :, [2, 1, 0]], (2, 0, 1))).float()
+        return img,img_file
+
+    def __len__(self):
+        return len(self.files_list)

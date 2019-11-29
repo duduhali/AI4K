@@ -6,6 +6,7 @@ C:\Python37\Scripts\pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r r
 C:\Python37\Scripts\pip install -i https://pypi.tuna.tsinghua.edu.cn/simple torchnet
 C:\Python37\Scripts\pip install git+https://github.com/pytorch/tnt.git@master
 
+https://kevinj-huang.github.io/2019/11/02/%E5%8D%9A%E5%AE%A2196/
 https://blog.csdn.net/aBlueMouse/article/details/78710553
 https://blog.csdn.net/u010327061/article/details/80101301
 

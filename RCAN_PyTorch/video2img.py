@@ -1,3 +1,4 @@
+# 图片单独存放，视频名作为文件夹
 import glob,os
 import argparse
 
