@@ -66,6 +66,7 @@ if __name__ == "__main__":
     scheduler = MultiStepLR(optimizer, milestones=[30, 80], gamma=0.1)
 
     for epoch in range(EPOCHS):
+        scheduler.step()
         model.train()
         epoch_losses = AverageMeter()
         with tqdm(total=(len(train_set) - len(train_set) % BATCH_SIZE)) as t:
@@ -84,7 +85,6 @@ if __name__ == "__main__":
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-                scheduler.step()
                 t.set_postfix(loss='{:.6f}'.format(epoch_losses.avg))
                 t.update(len(inputs))
         if epoch % 10 == 9:

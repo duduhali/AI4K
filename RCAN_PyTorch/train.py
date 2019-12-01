@@ -1,11 +1,9 @@
 import argparse
 import os
-import sys
-import os.path as osp
 import glob
 import numpy as np
 import torch
-import tqdm
+from tqdm import tqdm
 import torch.backends.cudnn as cudnn
 from collections import OrderedDict
 import torch.optim as optim
@@ -14,8 +12,8 @@ from torch.utils.data import DataLoader
 from torch.autograd import Variable
 
 from model.rcan import RCAN
-from dataloder import DatasetLoaderWithHR, DatasetLoader
-from utils import save_checkpoint, AverageMeter,psnr_cal
+from dataloder import  DatasetLoader
+from utils import  AverageMeter,psnr_cal
 
 
 def main(arg):
@@ -35,7 +33,7 @@ def main(arg):
 
     device_ids = list(range(args.gpus))
     model = RCAN(arg)
-    criterion = nn.L1Loss(size_average=False)
+    criterion = nn.L1Loss(reduction='sum')
 
     print("===> Setting GPU")
     model = nn.DataParallel(model, device_ids=device_ids)
@@ -93,7 +91,6 @@ def main(arg):
                 data_y = data_y.numpy().astype(np.float32)
 
                 psnr = psnr_cal(pred, data_y)
-
                 mean_loss = loss.item() / (args.batch_size * args.n_colors * ((args.patch_size * args.scale) ** 2))
                 losses.update(mean_loss)
                 psnrs.update(psnr)
@@ -105,13 +102,16 @@ def main(arg):
                 t.update(len(data[0]))
 
 
-        save_checkpoint(model, epoch)
+        # save model
+        model_out_path = os.path.join(args.checkpoint,"model_epoch_{}_rcan.pth".format(epoch))
+        if not os.path.exists(args.checkpoint):
+            os.makedirs(args.checkpoint)
+        torch.save(model.module.state_dict(), model_out_path)
 
 
 def adjust_lr(opt, epoch):
     scale = 0.1
-    print('Current lr {}'.format(args.lr))
-    if epoch in [200, 300, 350]:
+    if epoch in [30, 45, 60]:
         args.lr *= 0.1
         print('Change lr to {}'.format(args.lr))
         for param_group in opt.param_groups:
@@ -120,14 +120,13 @@ def adjust_lr(opt, epoch):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    working_dir = osp.dirname(osp.abspath(__file__))
     # model parameter
     parser.add_argument('--scale', default=4, type=int)
     parser.add_argument('--patch_size', default=64, type=int)
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--step_batch_size', default=1, type=int)
     parser.add_argument('--workers', default=16, type=int)
-    parser.add_argument('--gpus', type=int, default=2)
+    parser.add_argument('--gpus', type=int, default=1)
     parser.add_argument('--seed', default=123, type=int)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--weight_decay', type=float, default=1e-4)
@@ -153,7 +152,13 @@ if __name__ == '__main__':
 
     # check point
     parser.add_argument("--resume", default='', type=str)
-    parser.add_argument("--logs_dir", default='log/', type=str)
+    parser.add_argument("--checkpoint", default='checkpoint', type=str)
 
     args = parser.parse_args()
     main(args)
+
+    #python3 train.py --data-lr img_lr --data-hr img_hr --batch_size 32 --workers 16 --gpus 2 --resume checkpoint/model_epoch_10_rcan.pth --start_epoch 11
+
+    #python3 train.py --data-lr img_lr --data-hr img_hr --batch_size 80 --workers 16 --gpus 2  --resume checkpoint/model_epoch_12_rcan.pth --start_epoch 13
+
+    #C:\Python37\python  train.py --data-lr J:/AI+4K/pngs/X4  --data-hr J:/AI+4K/pngs/gt  --batch_size 4 --workers 4

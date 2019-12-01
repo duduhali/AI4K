@@ -82,6 +82,4 @@ if __name__ == '__main__':
 
 
 
-    #python3 eval.py --img-path /home/ubuntu/img_540p --resume log/model_epoch_7_rcan.pth --batch-size 10 --workers 10 --outputs-dir outputs
-
-    #python3 eval.py --img-path /home/ubuntu/one_file --resume log/model_epoch_5_rcan.pth --batch-size 1 --outputs-dir ./
+    #python3 eval.py --img-path /home/ubuntu/img_540p --resume checkpoint/model_epoch_16_rcan.pth --batch-size 8 --workers 16 --outputs-dir outputs

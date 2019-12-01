@@ -27,7 +27,7 @@ if __name__ == '__main__':
     #python video2img.py --video-path E:/test/videos/gt --img-path E:test/pngs/gt
     #python video2img.py --vp E:/test/videos/X4 --ip E:test/pngs/X4
 
-    #python3 video2img.py --vp /home/uftp/videos/gt --ip ./pngs/gt
-    #python3 video2img.py --vp /home/uftp/videos/X4 --ip ./pngs/X4
-    #python3 video2img.py --vp /home/uftp/SDR_540p --ip ./sdr_540p
+    #python3 video2img_blend.py --vp /home/ubuntu/test/gt --ip ./img_hr
+    #python3 video2img_blend.py --vp /home/ubuntu/test/X4 --ip ./img_lr
+    #python3 video2img_blend.py --vp /home/ubuntu/SDR_540p --ip ./sdr_540p
 
