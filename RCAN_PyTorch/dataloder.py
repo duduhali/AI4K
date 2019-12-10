@@ -51,6 +51,7 @@ class DatasetLoader(Dataset):
             # HWC to CHW, numpy to tensor
             img_gt = torch.from_numpy(np.ascontiguousarray(np.transpose(img_gt, (2, 0, 1)))).float()
             img_lr = torch.from_numpy(np.ascontiguousarray(np.transpose(img_lr, (2, 0, 1)))).float()
+            #可以这样认为，ascontiguousarray函数将一个内存不连续存储的数组转换为内存连续存储的数组，使得运行速度更快
         except Exception as e:
             random_sum = random.randrange(0, self.__len__())
             # print(index,random_sum,'出现异常',e.__str__())

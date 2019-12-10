@@ -1,6 +1,6 @@
 import argparse
 import os
-import glob
+from glob import glob
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -18,8 +18,20 @@ from utils import  AverageMeter,psnr_cal
 
 def main(arg):
     print("===> Loading datasets")
-    lr_list = glob.glob(os.path.join(args.data_lr, '*'))
-    hr_list = glob.glob(os.path.join(args.data_hr, '*'))
+    file_name = sorted(os.listdir(args.data_lr))
+    lr_list = []
+    hr_list = []
+    for one in file_name:
+        lr_tmp = sorted( glob(os.path.join(args.data_lr, one,'*.png')) )
+        lr_list.extend(lr_tmp)
+        hr_tmp = sorted( glob(os.path.join(args.data_hr, one,'*.png')) )
+        if len(hr_tmp) != 100:
+            print(one)
+        hr_list.extend(hr_tmp)
+
+    # lr_list = glob(os.path.join(args.data_lr, '*'))
+    # hr_list = glob(os.path.join(args.data_hr, '*'))
+
     data_set = DatasetLoader(lr_list, hr_list, arg.patch_size, arg.scale)
     train_loader = DataLoader(data_set, batch_size=arg.batch_size, num_workers=arg.workers, shuffle=True,
                               pin_memory=True, drop_last=True)
@@ -111,7 +123,8 @@ def main(arg):
 
 def adjust_lr(opt, epoch):
     scale = 0.1
-    if epoch in [30, 45, 60]:
+    # if epoch in [200, 300, 350]:
+    if epoch in [20, 30, 35]:
         args.lr *= 0.1
         print('Change lr to {}'.format(args.lr))
         for param_group in opt.param_groups:
@@ -126,7 +139,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--step_batch_size', default=1, type=int)
     parser.add_argument('--workers', default=16, type=int)
-    parser.add_argument('--gpus', type=int, default=2)
+    parser.add_argument('--gpus', type=int, default=1)
     parser.add_argument('--seed', default=123, type=int)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--weight_decay', type=float, default=1e-4)
@@ -157,8 +170,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     main(args)
 
-    #python3 train.py --data-lr img_lr --data-hr img_hr --batch_size 32 --workers 16 --gpus 2 --resume checkpoint/model_epoch_10_rcan.pth --start_epoch 11
+    #python3 train.py --data-lr train_lr --data-hr train_hr --batch_size 32 --workers 32 --epochs 40
 
     #python3 train.py --data-lr img_lr --data-hr img_hr --batch_size 80 --workers 16 --gpus 2  --resume checkpoint/model_epoch_12_rcan.pth --start_epoch 13
 
     #C:\Python37\python  train.py --data-lr J:/AI+4K/pngs/X4  --data-hr J:/AI+4K/pngs/gt  --batch_size 4 --workers 4
+
+    # nvidia-smi
