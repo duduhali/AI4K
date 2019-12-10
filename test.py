@@ -1,5 +1,7 @@
 import argparse
 from model.rcan import RCAN
+import torch
+from torch.autograd import Variable
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--img-path', type=str, default='')
@@ -19,25 +21,22 @@ parser.add_argument('--n_colors', type=int, default=3,help='number of color chan
 parser.add_argument('--res_scale', type=float, default=0.1,help='residual scaling')
 args = parser.parse_args()
 
+from tensorboardX import SummaryWriter
 
-# model = RCAN(args)
-# print(model)
+model = RCAN(args)
+print(model)
 
-
-import torch
-import torch.nn as nn
-from torch.autograd import Variable
-
-x1 = Variable(torch.linspace(0, 11,12).type(torch.FloatTensor)).view(3,4).unsqueeze_(0)
-x2 = Variable(torch.linspace(0, 11,12).type(torch.FloatTensor)).view(3,4).unsqueeze_(0)
-x3 = Variable(torch.linspace(0, 11,12).type(torch.FloatTensor)).view(3,4).unsqueeze_(0)
+x1 = Variable(torch.linspace(0, 3,4).type(torch.FloatTensor)).view(2,2).unsqueeze_(0)
+x2 = Variable(torch.linspace(0, 3,4).type(torch.FloatTensor)).view(2,2).unsqueeze_(0)
+x3 = Variable(torch.linspace(0, 3,4).type(torch.FloatTensor)).view(2,2).unsqueeze_(0)
 x = torch.cat((x1,x2,x3), 0).unsqueeze_(0)
-print(x.size())
-#torch.Size([1, 3, 3, 4])
 
-print(x)
-m = nn.Conv2d(3, 2, 1, padding=0, bias=True)
-output = m(x)
-print(output.shape)
-print(output)
-print(m.bias)
+
+# with SummaryWriter(log_dir='./log',comment='RCAN') as w:
+#     w.add_graph(model, (x, ))
+
+
+# 声明writer对象，保存的文件夹，以及名称
+writer = SummaryWriter(log_dir='./log', comment='RCAN')
+with writer:
+    writer.add_graph(model, (x,))

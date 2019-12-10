@@ -170,7 +170,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     main(args)
 
-    #python3 train.py --data-lr train_lr --data-hr train_hr --batch_size 32 --workers 32 --epochs 40
+    #python3 train.py --data-lr train_lr --data-hr train_hr --batch_size 32 --workers 32 --epochs 40 --resume checkpoint/model_epoch_5_rcan.pth --start_epoch 6
 
     #python3 train.py --data-lr img_lr --data-hr img_hr --batch_size 80 --workers 16 --gpus 2  --resume checkpoint/model_epoch_12_rcan.pth --start_epoch 13
 
