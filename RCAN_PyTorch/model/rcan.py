@@ -54,10 +54,7 @@ class ResidualGroup(nn.Module):
     def __init__(self, conv, n_feat, kernel_size, reduction, act, res_scale, n_resblocks):
         super(ResidualGroup, self).__init__()
         modules_body = []
-        modules_body = [
-            RCAB(
-                conv, n_feat, kernel_size, reduction, bias=True, bn=False, act=nn.ReLU(True), res_scale=1) \
-            for _ in range(n_resblocks)]
+        modules_body = [ RCAB(conv, n_feat, kernel_size, reduction, bias=True, bn=False, act=nn.ReLU(True), res_scale=1) for _ in range(n_resblocks)]
         modules_body.append(conv(n_feat, n_feat, kernel_size))
         self.body = nn.Sequential(*modules_body)
 
@@ -72,21 +69,21 @@ class RCAN(nn.Module):
     def __init__(self, args, conv=common.default_conv):
         super(RCAN, self).__init__()
         
-        n_resgroups = args.n_resgroups
-        n_res_blocks = args.n_res_blocks
-        n_feats = args.n_feats
+        n_resgroups = args.n_resgroups      #10
+        n_res_blocks = args.n_res_blocks    #20
+        n_feats = args.n_feats              #64
         kernel_size = 3
-        reduction = args.reduction 
+        reduction = args.reduction          #16
         scale = args.scale
         act = nn.ReLU(True)
         
         # RGB mean for DIV2K
         rgb_mean = (0.4488, 0.4371, 0.4040)
         rgb_std = (1.0, 1.0, 1.0)
-        self.sub_mean = common.MeanShift(args.rgb_range, rgb_mean, rgb_std)
+        self.sub_mean = common.MeanShift(args.rgb_range, rgb_mean, rgb_std) #rgb_range 255
         
         # define head module
-        modules_head = [conv(args.n_colors, n_feats, kernel_size)]
+        modules_head = [conv(args.n_colors, n_feats, kernel_size)] #n_colors 3
 
         # define body module
         modules_body = [
