@@ -14,9 +14,104 @@ from torch.autograd import Variable
 from model.rcan import RCAN
 from dataloder import  DatasetLoader
 from utils import  AverageMeter,psnr_cal
+from utils import Logger
+import sys
+import time
+
+
+def one_epoch_train_tqdm(model,optimizer,criterion,data_len,train_loader,epoch,epochs,batch_size,lr):
+    model.train()
+    losses = AverageMeter()
+    psnrs = AverageMeter()
+    with tqdm(total=(data_len -  data_len%batch_size)) as t:
+        t.set_description('epoch:{}/{} lr={}'.format(epoch, epochs - 1, lr))
+
+        for data in train_loader:
+            data_x, data_y = Variable(data[0]), Variable(data[1], requires_grad=False)
+
+            data_x = data_x.type(torch.FloatTensor)
+            data_y = data_y.type(torch.FloatTensor)
+
+            data_x = data_x.cuda()
+            data_y = data_y.cuda()
+
+            pred = model(data_x)
+            # pix loss
+            loss = criterion(pred, data_y)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            pred = pred.cpu()
+            pred = pred.detach().numpy().astype(np.float32)
+
+            data_y = data_y.cpu()
+            data_y = data_y.numpy().astype(np.float32)
+
+            psnr = psnr_cal(pred, data_y)
+            mean_loss = loss.item() / (args.batch_size * args.n_colors * ((args.patch_size * args.scale) ** 2))
+            losses.update(mean_loss)
+            psnrs.update(psnr)
+
+            t.set_postfix(loss='Loss: {losses.val:.3f} ({losses.avg:.3f})'
+                               ' PNSR: {psnrs.val:.3f} ({psnrs.avg:.3f})'
+                          .format(losses=losses, psnrs=psnrs))
+
+            t.update(batch_size)
+
+def one_epoch_train_logger(model,optimizer,criterion,data_len,train_loader,epoch,epochs,batch_size,lr):
+    model.train()
+    batch_time = AverageMeter()
+    data_time = AverageMeter()
+    losses = AverageMeter()
+    psnrs = AverageMeter()
+
+    end = time.time()
+    for iteration, data in enumerate(train_loader):
+        data_time.update(time.time() - end)
+
+        data_x, data_y = Variable(data[0]), Variable(data[1], requires_grad=False)
+        data_x = data_x.type(torch.FloatTensor)
+        data_y = data_y.type(torch.FloatTensor)
+        data_x = data_x.cuda()
+        data_y = data_y.cuda()
+
+        pred = model(data_x)
+        # pix loss
+        loss = criterion(pred, data_y)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        pred = pred.cpu()
+        pred = pred.detach().numpy().astype(np.float32)
+        data_y = data_y.cpu()
+        data_y = data_y.numpy().astype(np.float32)
+        psnr = psnr_cal(pred, data_y)
+        mean_loss = loss.item() / (args.batch_size * args.n_colors * ((args.patch_size * args.scale) ** 2))
+
+        losses.update(mean_loss)
+        psnrs.update(psnr)
+        batch_time.update(time.time() - end)
+
+        end = time.time()
+        use_time = batch_time.sum
+        if iteration % args.print_freq == 0:
+            print('Epoch:[{0}/{1}][{2}/{3}]  lr={4}\t {5} \t'
+                  'data_time: {data_time.val:.3f} ({data_time.avg:.3f})\t'
+                  'batch_time: {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                  'Loss: {losses.val:.3f} ({losses.avg:.3f})\t'
+                  'PNSR: {psnrs.val:.3f} ({psnrs.avg:.3f})'
+                  .format(epoch, epochs, iteration, data_len // batch_size, lr,
+                          '%d:%d:%d'%(use_time//3600,use_time//60,use_time%60),
+                          data_time=data_time,batch_time=batch_time,  losses=losses, psnrs=psnrs))
+
 
 
 def main(arg):
+    sys.stdout = Logger(os.path.join(args.logs_dir, 'log_rcan.txt'))
+
     print("===> Loading datasets")
     file_name = sorted(os.listdir(args.data_lr))
     lr_list = []
@@ -33,6 +128,7 @@ def main(arg):
     # hr_list = glob(os.path.join(args.data_hr, '*'))
 
     data_set = DatasetLoader(lr_list, hr_list, arg.patch_size, arg.scale)
+    data_len = len(data_set)
     train_loader = DataLoader(data_set, batch_size=arg.batch_size, num_workers=arg.workers, shuffle=True,
                               pin_memory=True, drop_last=True)
 
@@ -52,18 +148,30 @@ def main(arg):
     model = model.cuda()
     criterion = criterion.cuda()
 
+    start_epoch = args.start_epoch
     # optionally resume from a checkpoint
     if arg.resume:
+        if os.path.isdir(args.resume):
+            #获取目录中最后一个
+            pth_list = sorted( glob(os.path.join(args.resume, '*.pth')) )
+            if len(pth_list)>0:
+                args.resume = pth_list[-1]
         if os.path.isfile(args.resume):
             print("=> loading checkpoint '{}'".format(arg.resume))
             checkpoint = torch.load(arg.resume)
+            start_epoch = checkpoint['epoch']+1
+            state_dict = checkpoint['state_dict']
             new_state_dict = OrderedDict()
-            for k, v in checkpoint.items():
+            for k, v in state_dict.items():
                 namekey = 'module.' + k  # remove `module.`
                 new_state_dict[namekey] = v
             model.load_state_dict(new_state_dict)
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
+
+    if args.start_epoch != 0:
+        #如果设置了 start_epoch 则不用checkpoint中的epoch参数
+        start_epoch = args.start_epoch
 
 
     print("===> Setting Optimizer")
@@ -71,54 +179,19 @@ def main(arg):
                            lr=arg.lr, weight_decay=arg.weight_decay, betas=(0.9, 0.999), eps=1e-08)
 
     print("===> Training")
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in range(start_epoch, args.epochs):
         adjust_lr(optimizer, epoch)
-        model.train()
-        losses = AverageMeter()
-        psnrs = AverageMeter()
-        with tqdm(total=(len(data_set) - len(data_set) % args.batch_size)) as t:
-            t.set_description('epoch:{}/{} lr={}'.format(epoch, args.epochs - 1, optimizer.param_groups[0]["lr"]))
 
-            for data in train_loader:
-                data_x, data_y = Variable(data[0]), Variable(data[1], requires_grad=False)
-
-                data_x = data_x.type(torch.FloatTensor)
-                data_y = data_y.type(torch.FloatTensor)
-
-                data_x = data_x.cuda()
-                data_y = data_y.cuda()
-
-                pred = model(data_x)
-                # pix loss
-                loss = criterion(pred, data_y)
-
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-                pred = pred.cpu()
-                pred = pred.detach().numpy().astype(np.float32)
-
-                data_y = data_y.cpu()
-                data_y = data_y.numpy().astype(np.float32)
-
-                psnr = psnr_cal(pred, data_y)
-                mean_loss = loss.item() / (args.batch_size * args.n_colors * ((args.patch_size * args.scale) ** 2))
-                losses.update(mean_loss)
-                psnrs.update(psnr)
-
-                t.set_postfix(loss='Loss: {losses.val:.3f} ({losses.avg:.3f})'
-                                   ' PNSR: {psnrs.val:.3f} ({psnrs.avg:.3f})'
-                              .format(losses=losses, psnrs=psnrs))
-
-                t.update(len(data[0]))
-
+        one_epoch_train_logger(model, optimizer, criterion, data_len, train_loader, epoch, args.epochs, args.batch_size, optimizer.param_groups[0]["lr"])
 
         # save model
-        model_out_path = os.path.join(args.checkpoint,"model_epoch_{}_rcan.pth".format(epoch))
+        model_out_path = os.path.join(args.checkpoint,"model_epoch_%04d_rcan.pth"%(epoch))
         if not os.path.exists(args.checkpoint):
             os.makedirs(args.checkpoint)
-        torch.save(model.module.state_dict(), model_out_path)
+        torch.save({'state_dict': model.module.state_dict(), "epoch": epoch}, model_out_path)
+
+
+
 
 
 def adjust_lr(opt, epoch):
@@ -138,13 +211,13 @@ if __name__ == '__main__':
     parser.add_argument('--patch_size', default=64, type=int)
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--step_batch_size', default=1, type=int)
-    parser.add_argument('--workers', default=16, type=int)
+    parser.add_argument('--workers', default=32, type=int)
     parser.add_argument('--gpus', type=int, default=1)
     parser.add_argument('--seed', default=123, type=int)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--weight_decay', type=float, default=1e-4)
     parser.add_argument("--start_epoch", default=0, type=int)
-    parser.add_argument('--epochs', type=int, default=400)
+    parser.add_argument('--epochs', type=int, default=40)
     parser.add_argument("--n_res_blocks", type=int, default=20)
     parser.add_argument("--n_feats", type=int, default=64)
     parser.add_argument("--step", type=int, default=2)
@@ -160,20 +233,25 @@ if __name__ == '__main__':
                         help='number of feature maps reduction')
 
     # path
-    parser.add_argument('--data-lr', type=str, metavar='PATH',default='/home/ubuntu/img_lr')
-    parser.add_argument('--data-hr', type=str, metavar='PATH',default='/home/ubuntu/img_hr')
+    parser.add_argument('--data-lr', type=str, metavar='PATH',default='train_lr')
+    parser.add_argument('--data-hr', type=str, metavar='PATH',default='train_hr')
+
+    parser.add_argument('--logs-dir', type=str, default='logs')
 
     # check point
-    parser.add_argument("--resume", default='', type=str)
+    parser.add_argument("--resume", default='checkpoint', type=str)
     parser.add_argument("--checkpoint", default='checkpoint', type=str)
+    parser.add_argument('--print_freq', default=100, type=int)
 
     args = parser.parse_args()
     main(args)
 
+    # nohup python3 train.py --allow-root > null 2>&1 &
+
+    #python3 train.py
+
     #python3 train.py --data-lr train_lr --data-hr train_hr --batch_size 32 --workers 32 --epochs 40 --resume checkpoint/model_epoch_5_rcan.pth --start_epoch 6
 
-    #python3 train.py --data-lr img_lr --data-hr img_hr --batch_size 80 --workers 16 --gpus 2  --resume checkpoint/model_epoch_12_rcan.pth --start_epoch 13
-
-    #C:\Python37\python  train.py --data-lr J:/AI+4K/pngs/X4  --data-hr J:/AI+4K/pngs/gt  --batch_size 4 --workers 4
-
     # nvidia-smi
+
+    #tail -10f logs/log_rcan.txt

@@ -15,15 +15,6 @@ def horizontal_flip(image, axis):
     return image
 
 
-def save_checkpoint(model, epoch):
-    model_folder = "log/"
-    model_out_path = model_folder + "model_epoch_{}_rcan.pth".format(epoch)
-    if not os.path.exists(model_folder):
-        os.makedirs(model_folder)
-
-    torch.save(model.module.state_dict(), model_out_path)
-
-    print("Checkpoint saved to {}".format(model_out_path))
 
 
 def mkdir_if_missing(dir_path):
