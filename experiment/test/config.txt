@@ -1,0 +1,124 @@
+2019-12-12-19:29:31
+
+cpu: False
+act: relu
+save: test
+pre_train: 
+model: EDSR
+gan_k: 1
+scale: [4]
+lr: 0.0001
+G0: 64
+debug: False
+betas: (0.9, 0.999)
+gclip: 0
+n_colors: 3
+n_resblocks: 16
+patch_size: 192
+dilation: False
+reduction: 16
+seed: 1
+load: 
+template: .
+dir_demo: ../test
+n_GPUs: 1
+resume: 0
+reset: False
+shift_mean: True
+save_models: False
+res_scale: 1
+extend: .
+rgb_range: 255
+skip_threshold: 100000000.0
+decay: 200
+ext: sep
+batch_size: 16
+momentum: 0.9
+n_resgroups: 10
+print_every: 20
+data_train: ['Tencent']
+save_results: False
+split_batch: 1
+data_range: 1-69000/69001-70000
+loss: 1*L1
+test_only: False
+chop: False
+optimizer: ADAM
+test_every: 1000
+RDNconfig: B
+gamma: 0.5
+n_threads: 6
+weight_decay: 0
+save_gt: False
+RDNkSize: 3
+self_ensemble: False
+epsilon: 1e-08
+dir_data: ../../datasets
+n_feats: 128
+no_augment: False
+precision: single
+data_test: ['Tencent']
+epochs: 100
+
+2019-12-12-19:30:20
+
+resume: 0
+G0: 64
+rgb_range: 255
+n_resblocks: 16
+no_augment: False
+test_only: False
+template: .
+pre_train: 
+epochs: 100
+n_GPUs: 1
+save_results: False
+model: EDSR
+act: relu
+dir_demo: ../test
+chop: False
+split_batch: 1
+extend: .
+dir_data: ../../datasets
+patch_size: 192
+betas: (0.9, 0.999)
+batch_size: 16
+RDNkSize: 3
+gamma: 0.5
+data_range: 1-69000/69001-70000
+precision: single
+dilation: False
+decay: 200
+print_every: 20
+test_every: 1000
+save_gt: False
+weight_decay: 0
+reduction: 16
+debug: False
+load: 
+n_resgroups: 10
+n_colors: 3
+scale: [4]
+n_threads: 6
+reset: False
+data_test: ['Tencent']
+epsilon: 1e-08
+gan_k: 1
+seed: 1
+n_feats: 128
+loss: 1*L1
+data_train: ['Tencent']
+ext: sep
+skip_threshold: 100000000.0
+save_models: False
+res_scale: 1
+cpu: False
+save: test
+lr: 0.0001
+optimizer: ADAM
+shift_mean: True
+RDNconfig: B
+self_ensemble: False
+gclip: 0
+momentum: 0.9
+

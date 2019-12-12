@@ -24,19 +24,8 @@ args = parser.parse_args()
 from tensorboardX import SummaryWriter
 
 model = RCAN(args)
-print(model)
+# print(model)
 
-x1 = Variable(torch.linspace(0, 3,4).type(torch.FloatTensor)).view(2,2).unsqueeze_(0)
-x2 = Variable(torch.linspace(0, 3,4).type(torch.FloatTensor)).view(2,2).unsqueeze_(0)
-x3 = Variable(torch.linspace(0, 3,4).type(torch.FloatTensor)).view(2,2).unsqueeze_(0)
-x = torch.cat((x1,x2,x3), 0).unsqueeze_(0)
-
-
-# with SummaryWriter(log_dir='./log',comment='RCAN') as w:
-#     w.add_graph(model, (x, ))
-
-
-# 声明writer对象，保存的文件夹，以及名称
-writer = SummaryWriter(log_dir='./log', comment='RCAN')
-with writer:
-    writer.add_graph(model, (x,))
+x=torch.autograd.Variable(torch.rand(1,3,32,32)) #随便定义一个输入
+writer=SummaryWriter("./logs/")  #定义一个tensorboardX的写对象
+writer.add_graph(model,x,verbose=True)  #将proto格式的文件转换为tensorboard中的graph
