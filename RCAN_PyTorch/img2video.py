@@ -5,28 +5,21 @@ import cv2
 
 
 def transform(img_path,video_path):
-    name_list = set()
-    sum_dict = dict()
-    for img_file in os.listdir(img_path):
-        one_name  = img_file[0:8]
-        tmp_sum = sum_dict.get(one_name,0)
-        sum_dict[one_name] = tmp_sum+1
-        name_list.add(one_name)
-    print(len(name_list))
-    for k,v in sum_dict.items():
-        if v != 100:
-            raise Exception('%s 不等于100帧'%k)
+    for one in os.listdir(img_path):
+        one_dir = os.path.join(img_path,one)
+        if len(os.listdir(one_dir))!= 100:
+            raise Exception('%s 不等于100帧' %one_dir)
 
-    for name in name_list:
-        src = '{}/{}%4d.png'.format(img_path,name)
-        dst = '{}/{}.mp4'.format(video_path,name)
+        src = '{}/%3d.png'.format(one_dir)
+        dst = '{}/{}.mp4'.format(video_path, one)
         if os.path.exists(dst):
             continue
-        cmd_encoder = 'ffmpeg -r 24000/1001 -i '+ src + '  -vcodec libx265 -pix_fmt yuv422p -crf 10 ' + dst
+        cmd_encoder = 'ffmpeg -r 24000/1001 -i ' + src + '  -vcodec libx265 -pix_fmt yuv422p -crf 10 ' + dst
         print(cmd_encoder)
         # ffmpeg -r 24000/1001 -i J:/output/16536366%4d.png  -vcodec libx265 -pix_fmt yuv422p -crf 10 J:/submission/16536366.mp4
         process_encoder = subprocess.Popen(cmd_encoder, shell=True)
         process_encoder.wait()
+
     print('>>>>>>>>>>>>>>>>>>>>>>> transform OK!!!')
 
 #检测视频是否符合要求
@@ -71,7 +64,7 @@ if __name__ == '__main__':
     elif args.mode == 2:
         getVideoSize(args.video_path)  # 检测视频
 
-    # python3 img_blend2video.py  --mode 1 --img-path --video-path
+    # python3 img2video.py --img-path  J:/output_img --video-path J:/output_mp4
 
 
 

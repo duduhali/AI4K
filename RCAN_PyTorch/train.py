@@ -97,19 +97,22 @@ def one_epoch_train_logger(model,optimizer,criterion,data_len,train_loader,epoch
 
         end = time.time()
         use_time = batch_time.sum
+        time_h = use_time//3600
+        time_m = (use_time-time_h*3600)//60
+        show_time =  '%d:%d:%d'%(time_h,time_m,use_time%60)
+
         if iteration % args.print_freq == 0:
             print('Epoch:[{0}/{1}][{2}/{3}]  lr={4}\t {5} \t'
                   'data_time: {data_time.val:.3f} ({data_time.avg:.3f})\t'
                   'batch_time: {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Loss: {losses.val:.3f} ({losses.avg:.3f})\t'
                   'PNSR: {psnrs.val:.3f} ({psnrs.avg:.3f})'
-                  .format(epoch, epochs, iteration, data_len // batch_size, lr,
-                          '%d:%d:%d'%(use_time//3600,use_time//60,use_time%60),
+                  .format(epoch, epochs, iteration, data_len // batch_size, lr, show_time,
                           data_time=data_time,batch_time=batch_time,  losses=losses, psnrs=psnrs))
 
 
 
-def main(arg):
+def main(args):
     sys.stdout = Logger(os.path.join(args.logs_dir, 'log_rcan.txt'))
 
     print("===> Loading datasets")
@@ -127,9 +130,9 @@ def main(arg):
     # lr_list = glob(os.path.join(args.data_lr, '*'))
     # hr_list = glob(os.path.join(args.data_hr, '*'))
 
-    data_set = DatasetLoader(lr_list, hr_list, arg.patch_size, arg.scale)
+    data_set = DatasetLoader(lr_list, hr_list, args.patch_size, args.scale)
     data_len = len(data_set)
-    train_loader = DataLoader(data_set, batch_size=arg.batch_size, num_workers=arg.workers, shuffle=True,
+    train_loader = DataLoader(data_set, batch_size=args.batch_size, num_workers=args.workers, shuffle=True,
                               pin_memory=True, drop_last=True)
 
 
@@ -140,7 +143,7 @@ def main(arg):
     cudnn.benchmark = True
 
     device_ids = list(range(args.gpus))
-    model = RCAN(arg)
+    model = RCAN(args)
     criterion = nn.L1Loss(reduction='sum')
 
     print("===> Setting GPU")
@@ -150,15 +153,15 @@ def main(arg):
 
     start_epoch = args.start_epoch
     # optionally resume from a checkpoint
-    if arg.resume:
+    if args.resume:
         if os.path.isdir(args.resume):
             #获取目录中最后一个
             pth_list = sorted( glob(os.path.join(args.resume, '*.pth')) )
             if len(pth_list)>0:
                 args.resume = pth_list[-1]
         if os.path.isfile(args.resume):
-            print("=> loading checkpoint '{}'".format(arg.resume))
-            checkpoint = torch.load(arg.resume)
+            print("=> loading checkpoint '{}'".format(args.resume))
+            checkpoint = torch.load(args.resume)
             start_epoch = checkpoint['epoch']+1
             state_dict = checkpoint['state_dict']
             new_state_dict = OrderedDict()
@@ -176,7 +179,7 @@ def main(arg):
 
     print("===> Setting Optimizer")
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
-                           lr=arg.lr, weight_decay=arg.weight_decay, betas=(0.9, 0.999), eps=1e-08)
+                           lr=args.lr, weight_decay=args.weight_decay, betas=(0.9, 0.999), eps=1e-08)
 
     print("===> Training")
     for epoch in range(start_epoch, args.epochs):
@@ -246,7 +249,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     main(args)
 
-    # nohup python3 train.py --allow-root > null 2>&1 &
+    # nohup python3 train.py --allow-root > log.txt 2>&1 &
 
     #python3 train.py
 

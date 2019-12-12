@@ -129,18 +129,17 @@ class DatasetLoaderWithHR(Dataset):
 
 
 class EvalDataset(Dataset):
-    def __init__(self, img_path):
+    def __init__(self, test_lr):
         super(EvalDataset, self).__init__()
-        self.files_list = os.listdir(img_path)
-        self.img_path = img_path
+        self.test_lr = test_lr
 
     def __getitem__(self, idx):
-        img_file = self.files_list[idx]
-        img = cv2.imread(os.path.join(self.img_path,img_file), cv2.IMREAD_COLOR)
+        img_file = self.test_lr[idx]
+        img = cv2.imread(img_file, cv2.IMREAD_COLOR)
         img = img * 1.0
         # BGR -> RGB : [2, 1, 0]     HWC to CHW : (2, 0, 1)
         img = torch.from_numpy(np.transpose(img[:, :, [2, 1, 0]], (2, 0, 1))).float()
         return img,img_file
 
     def __len__(self):
-        return len(self.files_list)
+        return len(self.test_lr)

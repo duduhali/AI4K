@@ -8,7 +8,7 @@ import torch.backends.cudnn as cudnn
 from tqdm import tqdm
 import torch.nn as nn
 from torch.utils.data import DataLoader
-
+from glob import glob
 from model.rcan import RCAN
 from dataloder import EvalDataset
 
@@ -27,11 +27,17 @@ def eval_path(args):
     model = model.cuda()
 
     if args.resume:
+        if os.path.isdir(args.resume):
+            #获取目录中最后一个
+            pth_list = sorted( glob(os.path.join(args.resume, '*.pth')) )
+            if len(pth_list)>0:
+                args.resume = pth_list[-1]
         if os.path.isfile(args.resume):
             print("=> loading checkpoint '{}'".format(args.resume))
             checkpoint = torch.load(args.resume)
+            state_dict = checkpoint['state_dict']
             new_state_dict = OrderedDict()
-            for k, v in checkpoint.items():
+            for k, v in state_dict.items():
                 namekey = 'module.' + k  # remove `module.`
                 new_state_dict[namekey] = v
             model.load_state_dict(new_state_dict)
@@ -39,7 +45,14 @@ def eval_path(args):
             print("=> no checkpoint found at '{}'".format(args.resume))
 
     model.eval()
-    data_set = EvalDataset(args.img_path)
+
+    file_names = sorted(os.listdir(args.test_lr))
+    lr_list = []
+    for one in file_names:
+        lr_tmp = sorted(glob(os.path.join(args.test_lr, one, '*.png')))
+        lr_list.extend(lr_tmp)
+
+    data_set = EvalDataset(lr_list)
     eval_loader = DataLoader(data_set, batch_size=args.batch_size,num_workers=args.workers)
 
     with tqdm(total=(len(data_set) - len(data_set) % args.batch_size)) as t:
@@ -51,21 +64,28 @@ def eval_path(args):
             for img,file in zip(outputs,names):
                 img = np.transpose(img[[2, 1, 0], :, :], (1, 2, 0))
                 img = img.round()
-                cv2.imwrite('{0}/{1}'.format(args.outputs_dir, file), img)
+
+                arr = file.split('/')
+                dst_dir = os.path.join(args.outputs_dir,arr[-2])
+                if not os.path.exists(dst_dir):
+                    os.makedirs(dst_dir)
+                dst_name = os.path.join(dst_dir,arr[-1])
+
+                cv2.imwrite(dst_name, img)
             t.update(len(names))
 
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--img-path', type=str, default='')
-    parser.add_argument('--batch-size', type=int, default='5',help='Works when entering a directory')
+    parser.add_argument('--test_lr', type=str, default='test_lr')
+    parser.add_argument('--batch-size', type=int, default='4',help='Works when entering a directory')
     parser.add_argument('--workers', default=8, type=int)
-    parser.add_argument('--outputs-dir', default='outputs', type=str)
+    parser.add_argument('--outputs-dir', default='/home/data/outputs', type=str)
 
-    parser.add_argument("--resume", type=str, default='')
+    parser.add_argument("--resume", default='checkpoint', type=str)
 
-    parser.add_argument('--gpus', type=int, default=2)
+    parser.add_argument('--gpus', type=int, default=1)
     parser.add_argument('--seed', type=int, default=123)
 
     parser.add_argument('--n_resgroups', type=int, default=10,help='number of residual groups')
@@ -82,4 +102,4 @@ if __name__ == '__main__':
 
 
 
-    #python3 eval.py --img-path /home/ubuntu/img_540p --resume checkpoint/model_epoch_16_rcan.pth --batch-size 8 --workers 16 --outputs-dir outputs
+    #python3 eval.py
