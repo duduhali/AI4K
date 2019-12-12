@@ -1,11 +1,11 @@
 import argparse
-from model.rcan import RCAN
+from RCAN_PyTorch.model.rcan import RCAN
 import torch
-from torch.autograd import Variable
+from visualize import make_dot
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--img-path', type=str, default='')
-parser.add_argument('--batch-size', type=int, default='5',help='Works when entering a directory')
+parser.add_argument('--batch-size', type=int, default='1',help='Works when entering a directory')
 parser.add_argument('--workers', default=8, type=int)
 parser.add_argument('--outputs-dir', default='outputs', type=str)
 parser.add_argument("--resume", type=str, default='')
@@ -21,11 +21,22 @@ parser.add_argument('--n_colors', type=int, default=3,help='number of color chan
 parser.add_argument('--res_scale', type=float, default=0.1,help='residual scaling')
 args = parser.parse_args()
 
-from tensorboardX import SummaryWriter
 
 model = RCAN(args)
 # print(model)
-
 x=torch.autograd.Variable(torch.rand(1,3,32,32)) #随便定义一个输入
-writer=SummaryWriter("./logs/")  #定义一个tensorboardX的写对象
-writer.add_graph(model,x,verbose=True)  #将proto格式的文件转换为tensorboard中的graph
+
+
+#解决：RecursionError: maximum recursion depth exceeded while calling a Python object
+# import sys
+# sys.setrecursionlimit(1000000)
+#
+# y = model(x)
+# g = make_dot(y)
+# g.view()
+
+from tensorboardX import SummaryWriter
+writer = SummaryWriter(log_dir='logs', comment='rcan')
+with writer:
+    writer.add_graph(model, (x,))
+

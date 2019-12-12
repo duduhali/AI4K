@@ -249,7 +249,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     main(args)
 
-    # nohup python3 train.py --allow-root > log.txt 2>&1 &
+    # nohup python3 train.py &
+    # nohup python3 train.py>> output.log 2>&1 &
+    # ps -aux|grep train.py
+    # pgrep python3 | xargs kill -s 9
 
     #python3 train.py
 
