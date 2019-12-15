@@ -5,6 +5,9 @@ import cv2
 
 
 def transform(img_path,video_path):
+    if not os.path.exists(video_path):
+        os.makedirs(video_path)
+
     for one in os.listdir(img_path):
         one_dir = os.path.join(img_path,one)
         if len(os.listdir(one_dir))!= 100:

@@ -13,6 +13,7 @@ if not os.path.exists(args.img_path):
 new_name = args.mp4_path + '/*.mp4'
 video_lists = sorted(glob.glob(new_name))
 for video in video_lists:
+    video = video.replace('\\', '/')
     video_name = video.split('/')[-1]
     video_name = video_name.split('.')[0]
     img_folder = os.path.join(args.img_path,video_name)

@@ -15,8 +15,8 @@ except ImportError:
 
 def main():
     """A multi-thread tool to crop sub imags."""
-    input_folder = 'E:/DIV2K/DIV2K_train_HR'
-    save_folder = 'E:/DIV2K/DIV2K_train_sub'
+    input_folder = 'J:/DIV2K/DIV2K_valid_HR'
+    save_folder = 'J:/DIV2K/DIV2K_valid_sub'
     n_thread = 2
     crop_sz = 480  #把图片切分为crop_sz像素的正方形小图片
     step = 240    #每隔step像素切割一次（x轴和y轴每次移动的距离）

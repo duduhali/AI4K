@@ -49,6 +49,9 @@ def eval_path(args):
     file_names = sorted(os.listdir(args.test_lr))
     lr_list = []
     for one in file_names:
+        dst_dir = os.path.join(args.outputs_dir,one)
+        if os.path.exists(dst_dir) and len(os.listdir(dst_dir)) == 100:
+            continue
         lr_tmp = sorted(glob(os.path.join(args.test_lr, one, '*.png')))
         lr_list.extend(lr_tmp)
 
@@ -80,8 +83,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--test_lr', type=str, default='test_lr')
     parser.add_argument('--batch-size', type=int, default='4',help='Works when entering a directory')
-    parser.add_argument('--workers', default=8, type=int)
-    parser.add_argument('--outputs-dir', default='/home/data/outputs', type=str)
+    parser.add_argument('--workers', default=4, type=int)
+    parser.add_argument('--outputs-dir', default='output_img', type=str)
 
     parser.add_argument("--resume", default='checkpoint', type=str)
 
@@ -103,3 +106,6 @@ if __name__ == '__main__':
 
 
     #python3 eval.py
+
+
+    #python3 eval.py --resume model_epoch_0026_rcan.pth --test_lr ../test_lr  --outputs-dir ../outputs  --batch-size 1 --workers 1

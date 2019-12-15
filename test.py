@@ -1,7 +1,6 @@
 import argparse
 from RCAN_PyTorch.model.rcan import RCAN
 import torch
-from visualize import make_dot
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--img-path', type=str, default='')

@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from visualize import make_dot
+from demo.visualize import make_dot
 
 model = nn.Sequential()
 model.add_module('W0', nn.Linear(8, 16))

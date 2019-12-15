@@ -11,7 +11,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 
-from model.rcan import RCAN
+# from model.rcan import RCAN
+from model.edsr import EDSR
 from dataloder import  DatasetLoader
 from tool import  AverageMeter,psnr_cal
 import sys
@@ -58,6 +59,7 @@ def one_epoch_train_tqdm(model,optimizer,criterion,data_len,train_loader,epoch,e
                           .format(losses=losses, psnrs=psnrs))
 
             t.update(batch_size)
+    return losses, psnrs
 
 def one_epoch_train_logger(model,optimizer,criterion,data_len,train_loader,epoch,epochs,batch_size,lr):
     model.train()
@@ -109,10 +111,9 @@ def one_epoch_train_logger(model,optimizer,criterion,data_len,train_loader,epoch
                   .format(epoch, epochs, iteration, data_len // batch_size, lr, show_time,
                           data_time=data_time,batch_time=batch_time,  losses=losses, psnrs=psnrs))
 
-
+    return losses,psnrs
 
 def main(args):
-
     print("===> Loading datasets")
     file_name = sorted(os.listdir(args.data_lr))
     lr_list = []
@@ -125,8 +126,12 @@ def main(args):
             print(one)
         hr_list.extend(hr_tmp)
 
+
     # lr_list = glob(os.path.join(args.data_lr, '*'))
     # hr_list = glob(os.path.join(args.data_hr, '*'))
+    # lr_list = lr_list[0:max_index]
+    # hr_list = hr_list[0:max_index]
+
 
     data_set = DatasetLoader(lr_list, hr_list, args.patch_size, args.scale)
     data_len = len(data_set)
@@ -141,7 +146,7 @@ def main(args):
     cudnn.benchmark = True
 
     device_ids = list(range(args.gpus))
-    model = RCAN(args)
+    model = EDSR(args)
     criterion = nn.L1Loss(reduction='sum')
 
     print("===> Setting GPU")
@@ -160,6 +165,7 @@ def main(args):
         if os.path.isfile(args.resume):
             print("=> loading checkpoint '{}'".format(args.resume))
             checkpoint = torch.load(args.resume)
+
             start_epoch = checkpoint['epoch']+1
             state_dict = checkpoint['state_dict']
             new_state_dict = OrderedDict()
@@ -167,8 +173,9 @@ def main(args):
                 namekey = 'module.' + k  # remove `module.`
                 new_state_dict[namekey] = v
             model.load_state_dict(new_state_dict)
-        else:
-            print("=> no checkpoint found at '{}'".format(args.resume))
+
+            #如果文件中有lr，则不用启动参数
+            args.lr = checkpoint.get('lr', args.lr)
 
     if args.start_epoch != 0:
         #如果设置了 start_epoch 则不用checkpoint中的epoch参数
@@ -179,27 +186,52 @@ def main(args):
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
                            lr=args.lr, weight_decay=args.weight_decay, betas=(0.9, 0.999), eps=1e-08)
 
+    # record = []
     print("===> Training")
     for epoch in range(start_epoch, args.epochs):
         adjust_lr(optimizer, epoch)
 
-        one_epoch_train_tqdm(model, optimizer, criterion, data_len, train_loader, epoch, args.epochs, args.batch_size, optimizer.param_groups[0]["lr"])
+        losses, psnrs = one_epoch_train_logger(model, optimizer, criterion, data_len, train_loader, epoch, args.epochs, args.batch_size, optimizer.param_groups[0]["lr"])
+
+
+        # lr = optimizer.param_groups[0]["lr"]
+        # the_lr = 1e-2
+        # lr_len = 2
+        # while lr + (1e-9) < the_lr:
+        #     the_lr *= 0.1
+        #     lr_len += 1
+        # record.append([losses.avg,psnrs.avg,lr_len])
+
 
         # save model
-        model_out_path = os.path.join(args.checkpoint,"model_epoch_%04d_rcan.pth"%(epoch))
+        # if epoch+1 != args.epochs:
+        #     continue
+        model_out_path = os.path.join(args.checkpoint,"model_epoch_%04d_rcan_loss_%.3f_psnr_%.3f.pth"%(epoch,losses.avg,psnrs.avg) )
         if not os.path.exists(args.checkpoint):
             os.makedirs(args.checkpoint)
-        torch.save({'state_dict': model.module.state_dict(), "epoch": epoch}, model_out_path)
+        torch.save({
+            'state_dict': model.module.state_dict(),
+            "epoch": epoch,
+            'lr':optimizer.param_groups[0]["lr"]
+        }, model_out_path)
 
 
-
-
+    # import matplotlib.pyplot as plt
+    # # 绘制模型的训练误差曲线
+    # plt.figure(figsize=(10, 7))
+    # plt.plot([i[0] for i in record], label='loss')
+    # plt.plot([i[1] for i in record], label='psnr')
+    # plt.plot([i[2] for i in record], label='lr')
+    # # plt.xlabel('Batchs')
+    # # plt.ylabel('Loss')
+    # plt.legend()
+    # plt.show()
 
 def adjust_lr(opt, epoch):
     scale = 0.1
-    # if epoch in [200, 300, 350]:
-    if epoch in [20, 30, 35]:
-        args.lr *= 0.1
+    if epoch in [200, 300, 350]:
+    # if epoch in [40, 60, 70]:
+        args.lr *= scale
         print('Change lr to {}'.format(args.lr))
         for param_group in opt.param_groups:
             param_group['lr'] = param_group['lr'] * scale
@@ -210,16 +242,16 @@ if __name__ == '__main__':
     # model parameter
     parser.add_argument('--scale', default=4, type=int)
     parser.add_argument('--patch_size', default=64, type=int)
-    parser.add_argument('--batch_size', default=32, type=int)
+    parser.add_argument('--batch_size', default=64, type=int)
     parser.add_argument('--step_batch_size', default=1, type=int)
-    parser.add_argument('--workers', default=32, type=int)
+    parser.add_argument('--workers', default=4, type=int)
     parser.add_argument('--gpus', type=int, default=1)
     parser.add_argument('--seed', default=123, type=int)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--weight_decay', type=float, default=1e-4)
     parser.add_argument("--start_epoch", default=0, type=int)
-    parser.add_argument('--epochs', type=int, default=40)
-    parser.add_argument("--n_res_blocks", type=int, default=20)
+    parser.add_argument('--epochs', type=int, default=400)
+
     parser.add_argument("--n_feats", type=int, default=64)
     parser.add_argument("--step", type=int, default=2)
     parser.add_argument('--n_colors', type=int, default=3,
@@ -228,14 +260,18 @@ if __name__ == '__main__':
                         help='residual scaling')
     parser.add_argument('--rgb_range', type=int, default=255,
                         help='maximum value of RGB')
+    parser.add_argument('--n_resblocks', type=int, default=20,
+                        help='number of residual blocks')
     parser.add_argument('--n_resgroups', type=int, default=10,
                         help='number of residual groups')
     parser.add_argument('--reduction', type=int, default=16,
                         help='number of feature maps reduction')
 
     # path
-    parser.add_argument('--data-lr', type=str, metavar='PATH',default='train_lr')
-    parser.add_argument('--data-hr', type=str, metavar='PATH',default='train_hr')
+    # parser.add_argument('--data-lr', type=str, metavar='PATH',default='J:/train_lr')
+    # parser.add_argument('--data-hr', type=str, metavar='PATH',default='J:/train_hr')
+    parser.add_argument('--data-lr', type=str, metavar='PATH', default='../train_lr')
+    parser.add_argument('--data-hr', type=str, metavar='PATH', default='../train_hr')
 
     parser.add_argument('--logs-dir', type=str, default='logs')
 
@@ -245,17 +281,31 @@ if __name__ == '__main__':
     parser.add_argument('--print_freq', default=100, type=int)
 
     args = parser.parse_args()
+
+
+    # args.epochs = 80
+    # args.batch_size = 4
+    # args.workers = 4
+    # args.resume = ''
+    # max_index = 200
+    #
+    #
+    # args.patch_size = 64
+    # args.n_feats = 64
+    # # args.n_res_blocks = 20
+    # args.n_resblocks = 20
+
+
     main(args)
 
-    # nohup python3 train.py &
     # nohup python3 train.py>> output.log 2>&1 &
     # ps -aux|grep train.py
     # pgrep python3 | xargs kill -s 9
 
+
+
     #python3 train.py
 
-    #python3 train.py --data-lr train_lr --data-hr train_hr --batch_size 32 --workers 32 --epochs 40 --resume checkpoint/model_epoch_5_rcan.pth --start_epoch 6
+
 
     # nvidia-smi
-
-    #tail -10f logs/log_rcan.txt

@@ -59,6 +59,7 @@ def one_epoch_train_tqdm(model,optimizer,criterion,data_len,train_loader,epoch,e
                           .format(losses=losses, psnrs=psnrs))
 
             t.update(batch_size)
+    return losses, psnrs
 
 def one_epoch_train_logger(model,optimizer,criterion,data_len,train_loader,epoch,epochs,batch_size,lr):
     model.train()
@@ -110,7 +111,7 @@ def one_epoch_train_logger(model,optimizer,criterion,data_len,train_loader,epoch
                   .format(epoch, epochs, iteration, data_len // batch_size, lr, show_time,
                           data_time=data_time,batch_time=batch_time,  losses=losses, psnrs=psnrs))
 
-
+    return losses,psnrs
 
 def main(args):
     sys.stdout = Logger(os.path.join(args.logs_dir, 'log_rcan.txt'))
@@ -126,6 +127,7 @@ def main(args):
         if len(hr_tmp) != 100:
             print(one)
         hr_list.extend(hr_tmp)
+
 
     # lr_list = glob(os.path.join(args.data_lr, '*'))
     # hr_list = glob(os.path.join(args.data_hr, '*'))
@@ -162,6 +164,7 @@ def main(args):
         if os.path.isfile(args.resume):
             print("=> loading checkpoint '{}'".format(args.resume))
             checkpoint = torch.load(args.resume)
+
             start_epoch = checkpoint['epoch']+1
             state_dict = checkpoint['state_dict']
             new_state_dict = OrderedDict()
@@ -169,6 +172,10 @@ def main(args):
                 namekey = 'module.' + k  # remove `module.`
                 new_state_dict[namekey] = v
             model.load_state_dict(new_state_dict)
+
+            #如果文件中有lr，则不用启动参数
+            args.lr = checkpoint.get('lr', args.lr)
+
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 
@@ -185,13 +192,17 @@ def main(args):
     for epoch in range(start_epoch, args.epochs):
         adjust_lr(optimizer, epoch)
 
-        one_epoch_train_logger(model, optimizer, criterion, data_len, train_loader, epoch, args.epochs, args.batch_size, optimizer.param_groups[0]["lr"])
+        losses, psnrs = one_epoch_train_logger(model, optimizer, criterion, data_len, train_loader, epoch, args.epochs, args.batch_size, optimizer.param_groups[0]["lr"])
 
         # save model
-        model_out_path = os.path.join(args.checkpoint,"model_epoch_%04d_rcan.pth"%(epoch))
+        model_out_path = os.path.join(args.checkpoint,"model_epoch_%04d_rcan_loss_%.3f_psnr_%.3f.pth"%(epoch,losses.avg,psnrs.avg) )
         if not os.path.exists(args.checkpoint):
             os.makedirs(args.checkpoint)
-        torch.save({'state_dict': model.module.state_dict(), "epoch": epoch}, model_out_path)
+        torch.save({
+            'state_dict': model.module.state_dict(),
+            "epoch": epoch,
+            'lr':optimizer.param_groups[0]["lr"]
+        }, model_out_path)
 
 
 
@@ -201,7 +212,7 @@ def adjust_lr(opt, epoch):
     scale = 0.1
     # if epoch in [200, 300, 350]:
     if epoch in [20, 30, 35]:
-        args.lr *= 0.1
+        args.lr *= scale
         print('Change lr to {}'.format(args.lr))
         for param_group in opt.param_groups:
             param_group['lr'] = param_group['lr'] * scale
@@ -249,7 +260,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     main(args)
 
-    # nohup python3 train.py &
     # nohup python3 train.py>> output.log 2>&1 &
     # ps -aux|grep train.py
     # pgrep python3 | xargs kill -s 9
@@ -257,6 +267,9 @@ if __name__ == '__main__':
     #python3 train.py
 
     #python3 train.py --data-lr train_lr --data-hr train_hr --batch_size 32 --workers 32 --epochs 40 --resume checkpoint/model_epoch_5_rcan.pth --start_epoch 6
+
+    #python train.py --data-lr J:/AI+4K/pngs/X4 --data-hr J:/AI+4K/pngs/gt --batch_size 4 --workers 4 --epochs 40
+
 
     # nvidia-smi
 

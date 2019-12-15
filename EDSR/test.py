@@ -15,6 +15,8 @@ parser.add_argument('--weight_decay', type=float, default=1e-4)
 parser.add_argument("--start_epoch", default=0, type=int)
 parser.add_argument('--epochs', type=int, default=40)
 parser.add_argument("--n_res_blocks", type=int, default=20)
+parser.add_argument('--n_resblocks', type=int, default=20,
+                        help='number of residual blocks')
 parser.add_argument("--n_feats", type=int, default=64)
 parser.add_argument("--step", type=int, default=2)
 parser.add_argument('--n_colors', type=int, default=3,
@@ -45,5 +47,7 @@ model = RCAN(args)
 
 # from model.edsr import EDSR
 # model = EDSR(args)
+
+
 print(model)
 

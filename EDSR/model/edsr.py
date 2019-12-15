@@ -2,29 +2,29 @@ from model import common
 
 import torch.nn as nn
 
-url = {
-    'r16f64x2': 'https://cv.snu.ac.kr/research/EDSR/models/edsr_baseline_x2-1bc95232.pt',
-    'r16f64x3': 'https://cv.snu.ac.kr/research/EDSR/models/edsr_baseline_x3-abf2a44e.pt',
-    'r16f64x4': 'https://cv.snu.ac.kr/research/EDSR/models/edsr_baseline_x4-6b446fab.pt',
-    'r32f256x2': 'https://cv.snu.ac.kr/research/EDSR/models/edsr_x2-0edfb8a3.pt',
-    'r32f256x3': 'https://cv.snu.ac.kr/research/EDSR/models/edsr_x3-ea3ef2c6.pt',
-    'r32f256x4': 'https://cv.snu.ac.kr/research/EDSR/models/edsr_x4-4f62e9ef.pt'
-}
+# url = {
+#     'r16f64x2': 'https://cv.snu.ac.kr/research/EDSR/models/edsr_baseline_x2-1bc95232.pt',
+#     'r16f64x3': 'https://cv.snu.ac.kr/research/EDSR/models/edsr_baseline_x3-abf2a44e.pt',
+#     'r16f64x4': 'https://cv.snu.ac.kr/research/EDSR/models/edsr_baseline_x4-6b446fab.pt',
+#     'r32f256x2': 'https://cv.snu.ac.kr/research/EDSR/models/edsr_x2-0edfb8a3.pt',
+#     'r32f256x3': 'https://cv.snu.ac.kr/research/EDSR/models/edsr_x3-ea3ef2c6.pt',
+#     'r32f256x4': 'https://cv.snu.ac.kr/research/EDSR/models/edsr_x4-4f62e9ef.pt'
+# }
 
 class EDSR(nn.Module):
     def __init__(self, args, conv=common.default_conv):
         super(EDSR, self).__init__()
 
-        n_resblocks = args.n_res_blocks
+        n_resblocks = args.n_resblocks
         n_feats = args.n_feats
         kernel_size = 3 
         scale = args.scale
         act = nn.ReLU(True)
-        url_name = 'r{}f{}x{}'.format(n_resblocks, n_feats, scale)
-        if url_name in url:
-            self.url = url[url_name]
-        else:
-            self.url = None
+        # url_name = 'r{}f{}x{}'.format(n_resblocks, n_feats, scale)
+        # if url_name in url:
+        #     self.url = url[url_name]
+        # else:
+        #     self.url = None
         self.sub_mean = common.MeanShift(args.rgb_range)
         self.add_mean = common.MeanShift(args.rgb_range, sign=1)
 
