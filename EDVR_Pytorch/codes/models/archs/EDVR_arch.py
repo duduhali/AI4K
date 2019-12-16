@@ -251,7 +251,8 @@ class EDVR(nn.Module):
 
     def forward(self, x):
         B, N, C, H, W = x.size()  # N video frames
-        x_center = x[:, self.center, :, :, :].contiguous()
+        x_center = x[:, self.center, :, :, :].contiguous()#把tensor变成在内存中连续分布的形式。
+        #判断是否contiguous用torch.Tensor.is_contiguous()函数。
 
         #### extract LR features
         # L1
