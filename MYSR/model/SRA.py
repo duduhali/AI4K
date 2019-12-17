@@ -73,6 +73,9 @@ class SRA(nn.Module):
         for _ in range(2):
             frame_b1_s.append(RCAB(conv, n_feats, kernel_size, reduction, bias=True, act=nn.ReLU(True)))
             frame_f1_s.append(RCAB(conv, n_feats, kernel_size, reduction, bias=True, act=nn.ReLU(True)))
+            frame_b1_s.append(conv(n_feats, n_feats, kernel_size))
+            frame_f1_s.append(conv(n_feats, n_feats, kernel_size))
+
         self.b1_s = nn.Sequential(*frame_b1_s)
         self.f1_s = nn.Sequential(*frame_f1_s)
 
@@ -82,12 +85,14 @@ class SRA(nn.Module):
         for _ in range(2):
             frame_b1_t.append(RCAB(conv, n_feats, kernel_size, reduction, bias=True, act=nn.ReLU(True)))
             frame_f1_t.append(RCAB(conv, n_feats, kernel_size, reduction, bias=True, act=nn.ReLU(True)))
+            frame_b1_t.append(conv(n_feats, n_feats, kernel_size))
+            frame_f1_t.append(conv(n_feats, n_feats, kernel_size))
         self.b1_t = nn.Sequential(*frame_b1_t)
         self.f1_t = nn.Sequential(*frame_f1_t)
 
 
         modules_x = []
-        for _ in range(10):
+        for _ in range(20):
             modules_x.append(RCAB(conv, n_feats, kernel_size, reduction, bias=True, act=nn.ReLU(True)))
             modules_x.append(conv(n_feats, n_feats, kernel_size))
         self.main_x = nn.Sequential(*modules_x)
@@ -95,7 +100,7 @@ class SRA(nn.Module):
 
 
         modules_middle = []
-        for _ in range(20):
+        for _ in range(30):
             modules_middle.append(RCAB(conv, n_feats, kernel_size, reduction, bias=True, act=nn.ReLU(True)))
             modules_middle.append(conv(n_feats, n_feats, kernel_size))
         self.middle = nn.Sequential(*modules_middle)

@@ -11,10 +11,9 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 
-# from model.rcan import RCAN
-from model.edsr import EDSR
-from dataloder import  DatasetLoader
-from tool import  AverageMeter,psnr_cal
+from model.SRA import SRA
+from dataloderA import  DatasetLoader
+from utils import  AverageMeter,psnr_cal
 import sys
 import time
 
@@ -27,15 +26,22 @@ def one_epoch_train_tqdm(model,optimizer,criterion,data_len,train_loader,epoch,e
         t.set_description('epoch:{}/{} lr={}'.format(epoch, epochs - 1, lr))
 
         for data in train_loader:
-            data_x, data_y = Variable(data[0]), Variable(data[1], requires_grad=False)
+            data_x_b = Variable(data[0])
+            data_x = Variable(data[1])
+            data_x_f = Variable(data[2])
+            data_y = Variable(data[3], requires_grad=False)
 
+            data_x_b = data_x_b.type(torch.FloatTensor)
             data_x = data_x.type(torch.FloatTensor)
+            data_x_f = data_x_f.type(torch.FloatTensor)
             data_y = data_y.type(torch.FloatTensor)
 
+            data_x_b = data_x_b.cuda()
             data_x = data_x.cuda()
+            data_x_f = data_x_f.cuda()
             data_y = data_y.cuda()
 
-            pred = model(data_x)
+            pred = model(data_x_b,data_x,data_x_f)
             # pix loss
             loss = criterion(pred, data_y)
 
@@ -129,11 +135,11 @@ def main(args):
 
     # lr_list = glob(os.path.join(args.data_lr, '*'))
     # hr_list = glob(os.path.join(args.data_hr, '*'))
-    # lr_list = lr_list[0:max_index]
-    # hr_list = hr_list[0:max_index]
+    lr_list = lr_list[0:max_index]
+    hr_list = hr_list[0:max_index]
 
 
-    data_set = DatasetLoader(lr_list, hr_list, args.patch_size, args.scale)
+    data_set = DatasetLoader(lr_list, hr_list, args.patch_size)
     data_len = len(data_set)
     train_loader = DataLoader(data_set, batch_size=args.batch_size, num_workers=args.workers, shuffle=True,
                               pin_memory=True, drop_last=True)
@@ -146,7 +152,7 @@ def main(args):
     cudnn.benchmark = True
 
     device_ids = list(range(args.gpus))
-    model = EDSR(args)
+    model = SRA()
     criterion = nn.L1Loss(reduction='sum')
 
     print("===> Setting GPU")
@@ -191,7 +197,7 @@ def main(args):
     for epoch in range(start_epoch, args.epochs):
         adjust_lr(optimizer, epoch)
 
-        losses, psnrs = one_epoch_train_logger(model, optimizer, criterion, data_len, train_loader, epoch, args.epochs, args.batch_size, optimizer.param_groups[0]["lr"])
+        losses, psnrs = one_epoch_train_tqdm(model, optimizer, criterion, data_len, train_loader, epoch, args.epochs, args.batch_size, optimizer.param_groups[0]["lr"])
 
 
         # lr = optimizer.param_groups[0]["lr"]
@@ -204,9 +210,10 @@ def main(args):
 
 
         # save model
-        # if epoch+1 != args.epochs:
-        #     continue
-        model_out_path = os.path.join(args.checkpoint,"model_epoch_%04d_edsr_loss_%.3f_psnr_%.3f.pth"%(epoch,losses.avg,psnrs.avg) )
+        if epoch+1 != args.epochs:
+            continue
+
+        model_out_path = os.path.join(args.checkpoint,"model_epoch_%04d_sra_loss_%.3f_psnr_%.3f.pth"%(epoch,losses.avg,psnrs.avg) )
         if not os.path.exists(args.checkpoint):
             os.makedirs(args.checkpoint)
         torch.save({
@@ -240,7 +247,6 @@ def adjust_lr(opt, epoch):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # model parameter
-    parser.add_argument('--scale', default=4, type=int)
     parser.add_argument('--patch_size', default=64, type=int)
     parser.add_argument('--batch_size', default=64, type=int)
     parser.add_argument('--step_batch_size', default=1, type=int)
@@ -252,26 +258,12 @@ if __name__ == '__main__':
     parser.add_argument("--start_epoch", default=0, type=int)
     parser.add_argument('--epochs', type=int, default=400)
 
-    parser.add_argument("--n_feats", type=int, default=64)
-    parser.add_argument("--step", type=int, default=2)
-    parser.add_argument('--n_colors', type=int, default=3,
-                        help='number of color channels to use')
-    parser.add_argument('--res_scale', type=float, default=0.1,
-                        help='residual scaling')
-    parser.add_argument('--rgb_range', type=int, default=255,
-                        help='maximum value of RGB')
-    parser.add_argument('--n_resblocks', type=int, default=20,
-                        help='number of residual blocks')
-    parser.add_argument('--n_resgroups', type=int, default=10,
-                        help='number of residual groups')
-    parser.add_argument('--reduction', type=int, default=16,
-                        help='number of feature maps reduction')
 
     # path
-    # parser.add_argument('--data-lr', type=str, metavar='PATH',default='J:/train_lr')
-    # parser.add_argument('--data-hr', type=str, metavar='PATH',default='J:/train_hr')
-    parser.add_argument('--data-lr', type=str, metavar='PATH', default='../train_lr')
-    parser.add_argument('--data-hr', type=str, metavar='PATH', default='../train_hr')
+    parser.add_argument('--data-lr', type=str, metavar='PATH',default='J:/train_lr')
+    parser.add_argument('--data-hr', type=str, metavar='PATH',default='J:/train_hr')
+    # parser.add_argument('--data-lr', type=str, metavar='PATH', default='../train_lr')
+    # parser.add_argument('--data-hr', type=str, metavar='PATH', default='../train_hr')
 
     parser.add_argument('--logs-dir', type=str, default='logs')
 
@@ -281,19 +273,16 @@ if __name__ == '__main__':
     parser.add_argument('--print_freq', default=100, type=int)
 
     args = parser.parse_args()
+    args.n_colors = 3
+    args.scale = 4
 
 
-    # args.epochs = 80
-    # args.batch_size = 4
-    # args.workers = 4
-    # args.resume = ''
-    # max_index = 200
-    #
-    #
-    # args.patch_size = 64
-    # args.n_feats = 64
-    # # args.n_res_blocks = 20
-    # args.n_resblocks = 20
+
+    args.epochs = 80
+    args.batch_size = 4
+    args.workers = 4
+    args.resume = ''
+    max_index = 200
 
 
     main(args)
