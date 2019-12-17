@@ -1,16 +1,12 @@
 import torch
 import argparse
 from model.SR import SR
-
+from model.SRA import SRA
 
 parser = argparse.ArgumentParser()
-
-
 args = parser.parse_args()
-
 args.n_resgroups = 1
 args.n_res_blocks = 1
-
 args.scale = 4
 args.n_feats = 64
 args.reduction = 16
@@ -19,7 +15,8 @@ args.n_colors = 3
 args.res_scale = 0.1 #模型中未使用
 
 
-model = SR(args)
+# model = SR(args)
+model = SRA()
 print(model)
 
 
