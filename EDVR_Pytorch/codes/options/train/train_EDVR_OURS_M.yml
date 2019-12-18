@@ -1,7 +1,7 @@
 #### general settings
 name: 001_EDVR_OURS
 use_tb_logger: true
-model: VideoSR_base
+model: video_base
 distortion: sr
 scale: 4
 gpu_ids: [0]
@@ -69,4 +69,4 @@ train:
 #### logger
 logger:
   print_freq: 10
-  save_checkpoint_freq: !!float 1e1
+  save_checkpoint_freq: !!float 1e2
