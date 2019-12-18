@@ -43,15 +43,24 @@ class REDSDataset(data.Dataset):
         self.data_type = self.opt['data_type']
         self.LR_input = False if opt['GT_size'] == opt['LQ_size'] else True  # low resolution inputs
         #### directly load image keys
-        if self.data_type == 'lmdb':
-            self.paths_GT, _ = util.get_image_paths(self.data_type, opt['dataroot_GT'])
-            logger.info('Using lmdb meta info for cache keys.')
-        elif opt['cache_keys']:
+        if opt['cache_keys']:
+            # 这里获取了我们的meta_info.pkl，然后我们希望读入它
             logger.info('Using cache keys: {}'.format(opt['cache_keys']))
-            self.paths_GT = pickle.load(open(opt['cache_keys'], 'rb'))['keys']
+            cache_keys = opt['cache_keys']
         else:
-            raise ValueError(
-                'Need to create cache keys (meta_info.pkl) by running [create_lmdb.py]')
+            cache_keys = 'REDS_trainval_keys.pkl'
+        logger.info('Using cache keys - {}.'.format(cache_keys))
+        self.paths_GT = pickle.load(open('./data/{}'.format(cache_keys), 'rb'))["keys"]
+
+        # if self.data_type == 'lmdb':
+        #     self.paths_GT, _ = util.get_image_paths(self.data_type, opt['dataroot_GT'])
+        #     logger.info('Using lmdb meta info for cache keys.')
+        # elif opt['cache_keys']:
+        #     logger.info('Using cache keys: {}'.format(opt['cache_keys']))
+        #     self.paths_GT = pickle.load(open(opt['cache_keys'], 'rb'))['keys']
+        # else:
+        #     raise ValueError(
+        #         'Need to create cache keys (meta_info.pkl) by running [create_lmdb.py]')
 
         # remove the REDS4 for testing
         self.paths_GT = [

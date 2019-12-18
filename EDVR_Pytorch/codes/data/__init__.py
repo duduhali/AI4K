@@ -8,7 +8,7 @@ def create_dataloader(dataset, dataset_opt, opt=None, sampler=None):
     phase = dataset_opt['phase']
     if phase == 'train':
         if opt['dist']:
-            world_size = torch.distributed.get_world_size()
+            world_size = 1 if dataset_opt['debug'] else torch.distributed.get_world_size()
             num_workers = dataset_opt['n_workers']
             assert dataset_opt['batch_size'] % world_size == 0
             batch_size = dataset_opt['batch_size'] // world_size
@@ -17,7 +17,7 @@ def create_dataloader(dataset, dataset_opt, opt=None, sampler=None):
             num_workers = dataset_opt['n_workers'] * len(opt['gpu_ids'])
             batch_size = dataset_opt['batch_size']
             shuffle = True
-        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',batch_size,shuffle,num_workers)
+        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>',world_size,batch_size,shuffle,num_workers)
         return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,
                                            num_workers=num_workers, sampler=sampler, drop_last=True,
                                            pin_memory=False)
@@ -45,6 +45,5 @@ def create_dataset(dataset_opt):
     dataset = D(dataset_opt)
 
     logger = logging.getLogger('base')
-    logger.info('Dataset [{:s} - {:s}] is created.'.format(dataset.__class__.__name__,
-                                                           dataset_opt['name']))
+    logger.info('Dataset [{:s} - {:s}] is created.'.format(dataset.__class__.__name__, dataset_opt['name']))
     return dataset

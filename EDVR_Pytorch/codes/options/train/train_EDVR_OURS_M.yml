@@ -19,6 +19,8 @@ datasets:
 
     cache_keys: meta_info.pkl
 
+    data_type: lmdb
+
     N_frames: 5
     use_shuffle: true
     n_workers: 3  # per GPU

@@ -8,3 +8,4 @@ PyTorch/data/*
 *.pth
 *.pkl
 *.mdb
+*.lmdb

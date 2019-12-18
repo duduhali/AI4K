@@ -400,13 +400,13 @@ def OURS(mode="input"):
     BATCH = 50  # After BATCH images, lmdb commits, if read_all_imgs = False
 
     if mode == 'input':
-        img_folder = '/home/yons/data/train5/lr'  # ** 使用相对路径指向我们的数据集的input
+        img_folder = 'J:/5file/train_lr'  # ** 使用相对路径指向我们的数据集的input
         lmdb_save_path = './../../datasets/train_input_wval.lmdb'  # ** 待会生成的lmdb文件存储的路径
         '''原来使用全局路径，我们使用相对路径'''
         H_dst, W_dst = 540, 960  # 帧的大小：H，W
 
     elif mode == 'gt':
-        img_folder = '/home/yons/data/train5/hr_small'  # ** 使用相对路径指向我们的数据集的input
+        img_folder = 'J:/5file/train_hr_small'  # ** 使用相对路径指向我们的数据集的input
         lmdb_save_path = './../../datasets/train_gt_wval.lmdb'  # ** 待会生成的lmdb文件存储的路径
         '''原来使用全局路径，我们使用相对路径'''
         H_dst, W_dst = 540, 960  # 帧的大小：H，W
