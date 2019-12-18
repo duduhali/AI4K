@@ -429,7 +429,7 @@ def OURS(mode="input"):
         # 取子文件夹名 xxxxxx
         a = split_rlt[-2]
         # 取帧的名字，出去文件后缀 xxxxxx
-        b = split_rlt[-1].split('.jpg')[0]  # ** 我们的图像是".jpg"结尾的
+        b = split_rlt[-1].split('.png')[0]  # ** 我们的图像是".png"结尾的
         keys.append(a + '_' + b)
 
     if read_all_imgs:  # read_all_images = False，所以这部分不管

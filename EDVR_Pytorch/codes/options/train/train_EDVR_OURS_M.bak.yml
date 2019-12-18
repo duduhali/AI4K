@@ -69,4 +69,4 @@ train:
 #### logger
 logger:
   print_freq: 10                                                       # 每多少个iterations打印日志
-  save_checkpoint_freq: !!float 2e3                                    # 每多少个iterations保存模型
+  save_checkpoint_freq: !!float 1e1                                    # 每多少个iterations保存模型
