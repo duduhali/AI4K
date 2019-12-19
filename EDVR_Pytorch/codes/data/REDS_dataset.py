@@ -142,8 +142,7 @@ class REDSDataset(data.Dataset):
             name_b = '{:03d}'.format(neighbor_list[0])
         else:
             # ensure not exceeding the borders
-            while (center_frame_idx + self.half_N_frames * interval >
-                   99) or (center_frame_idx - self.half_N_frames * interval < 0):
+            while (center_frame_idx + self.half_N_frames * interval > 99) or (center_frame_idx - self.half_N_frames * interval < 0):
                 center_frame_idx = random.randint(0, 99)
             # get the neighbor list
             neighbor_list = list(

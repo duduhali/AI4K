@@ -3,10 +3,12 @@ import glob,os
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--mp4-path', type=str, required=True)
-parser.add_argument('--img-path', type=str, required=True)
+parser.add_argument('--mp4-path', type=str)
+parser.add_argument('--img-path', type=str)
 args = parser.parse_args()
 
+# args.mp4_path = 'E:/2file/hr_mp4'
+# args.img_path = 'E:/2file/hr'
 
 if not os.path.exists(args.img_path):
     os.mkdir(args.img_path)

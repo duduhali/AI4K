@@ -38,8 +38,8 @@ parser.add_argument('--input', type=str, default='input')
 parser.add_argument('--output', type=str, default='output')
 args = parser.parse_args()
 
-# args.input = 'J:/5file/train_hr'
-# args.output = 'J:/5file/train_hr_small'
+args.input = 'E:/2file/hr'
+args.output = 'E:/2file/hr_small'
 
 small(args)
 
