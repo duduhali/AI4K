@@ -90,7 +90,7 @@ class DatasetLoader(Dataset):
             random_sum = random.randrange(0, self.__len__())
             return self.__getitem__(random_sum)
 
-        return {'lrs': img_lrs, 'hr': img_hr, 'key': lr_file}
+        return {'LQs': img_lrs, 'GT': img_hr, 'key': lr_file}
 
     def __len__(self):
         return len(self.lr_list)

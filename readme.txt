@@ -10,4 +10,4 @@ EDVR:
 https://blog.csdn.net/WinerChopin/article/details/96427327
 
 
-python -m torch.distributed.launch --nproc_per_node=2 --master_port=21688 train.py -opt options/train/train_EDVR_OURS_M.yml --launcher pytorch
+python3 -m torch.distributed.launch --nproc_per_node=2 --master_port=21688 train.py -opt options/train/train_EDVR_OURS_M.yml --launcher pytorch

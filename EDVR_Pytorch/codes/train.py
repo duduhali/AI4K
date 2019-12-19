@@ -3,17 +3,17 @@ import math
 import argparse
 import random
 import logging
-
+from glob import glob
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from data.data_sampler import DistIterSampler
-
+from torch.utils.data import DataLoader
 import options.options as option
 from utils import util
 from data import create_dataloader, create_dataset
 from models import create_model
-
+from dataloderREDS import DatasetLoader
 
 def init_dist(backend='nccl', **kwargs):
     """initialization for distributed training"""
@@ -32,6 +32,15 @@ def main():
     parser.add_argument('--launcher', choices=['none', 'pytorch'], default='none',
                         help='job launcher')
     parser.add_argument('--local_rank', type=int, default=0)
+
+    parser.add_argument('--patch_size', default=128, type=int)
+    parser.add_argument('--data-lr', type=str, metavar='PATH', default='/home/yons/data/train5/lr')
+    parser.add_argument('--data-hr', type=str, metavar='PATH', default='/home/yons/data/train5/hr_small')
+    parser.add_argument('--workers', default=3, type=int)
+    parser.add_argument('--batch_size', default=16, type=int)
+    parser.add_argument('--scale', default=1, type=int)
+    parser.add_argument('--n_frames', default=5, type=int)
+    parser.add_argument('--interval_list', default=[1], type=int, nargs='+')
     args = parser.parse_args()
     opt = option.parse(args.opt, is_train=True)
 
@@ -101,7 +110,21 @@ def main():
     dataset_ratio = 200  # enlarge the size of each epoch
     for phase, dataset_opt in opt['datasets'].items():
         if phase == 'train':
-            train_set = create_dataset(dataset_opt)
+            # train_set = create_dataset(dataset_opt)
+            file_name = sorted(os.listdir(args.data_lr))
+            lr_list = []
+            hr_list = []
+            for one in file_name:
+                lr_tmp = sorted(glob(os.path.join(args.data_lr, one, '*.png')))
+                lr_list.extend(lr_tmp)
+                hr_tmp = sorted(glob(os.path.join(args.data_hr, one, '*.png')))
+                if len(hr_tmp) != 100:
+                    print(one)
+                hr_list.extend(hr_tmp)
+
+            train_set = DatasetLoader(lr_list, hr_list, patch_size=args.patch_size,
+                                     scale=args.scale, n_frames=args.n_frames, interval_list=args.interval_list)
+
             train_size = int(math.ceil(len(train_set) / dataset_opt['batch_size']))
             total_iters = int(opt['train']['niter'])
             total_epochs = int(math.ceil(total_iters / train_size))
@@ -110,7 +133,9 @@ def main():
                 total_epochs = int(math.ceil(total_iters / (train_size * dataset_ratio)))
             else:
                 train_sampler = None
-            train_loader = create_dataloader(train_set, dataset_opt, opt, train_sampler)
+            # train_loader = create_dataloader(train_set, dataset_opt, opt, train_sampler)
+            train_loader = DataLoader(train_set, batch_size=args.batch_size, num_workers=args.workers, shuffle=True,
+                                      pin_memory=False, drop_last=True)
             if rank <= 0:
                 logger.info('Number of train images: {:,d}, iters: {:,d}'.format(
                     len(train_set), train_size))
