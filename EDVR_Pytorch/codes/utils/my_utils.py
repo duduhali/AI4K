@@ -59,21 +59,26 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def psnr_cal(pred, gt):
+def psnr_cal_0_255(pred, gt):
     batch = pred.shape[0]
     psnr = 0
     for i in range(batch):
-        for j in range(3):
-            pr = pred[i, j, :, :]
-            hd = gt[i, j, :, :]
-
-            imdff = pr - hd
-            rmse = math.sqrt(np.mean(imdff ** 2))
-            if rmse == 0:
-                psnr = psnr + 45
-                continue
-            psnr = psnr + 20 * math.log10(255.0 / rmse)
-    return psnr / (batch*3)
+        pr = pred[i]
+        hd = gt[i]
+        mse = np.mean((pr / 1. - hd / 1.) ** 2)
+        if mse < 1.0e-10:
+            psnr = psnr + 45
+            continue
+        psnr = psnr + 10 * np.log10(255 * 255 / mse)
+    return psnr / (batch)
 
 
-
+def psnr_cal_0_1(pred, gt):
+    batch = pred.shape[0]
+    psnr = 0
+    for i in range(batch):
+        pr = pred[i]
+        hd = gt[i]
+        mse = np.mean((pr / 1. - hd / 1.) ** 2)
+        psnr = psnr + 10* np.log10(1. / mse)
+    return psnr / (batch)

@@ -109,7 +109,6 @@ class DatasetLoader(Dataset):
             img_lrs = torch.from_numpy(np.ascontiguousarray(np.transpose(img_lrs,(0, 3, 1, 2)))).float()
 
         except Exception as e:
-            raise e
             random_sum = random.randrange(0, self.__len__())
             return self.__getitem__(random_sum)
 
