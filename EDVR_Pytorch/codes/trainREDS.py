@@ -10,24 +10,7 @@ from dataloderREDS import DatasetLoader
 from models.loss import CharbonnierLoss
 import models.archs.EDVR_arch as EDVR_arch
 
-def main(opt):
-    parser = argparse.ArgumentParser()
-    # dataloader
-    parser.add_argument('--epochs', default=100, type=int)
-    parser.add_argument('--patch_size', default=128, type=int)
-    parser.add_argument('--data-lr', type=str, metavar='PATH', default='/home/yons/data/train5/lr')
-    parser.add_argument('--data-hr', type=str, metavar='PATH', default='/home/yons/data/train5/hr_small')
-    parser.add_argument('--workers', default=3, type=int)
-    parser.add_argument('--batch_size', default=16, type=int)
-    parser.add_argument('--scale', default=1, type=int)
-    parser.add_argument('--n_frames', default=5, type=int)
-    parser.add_argument('--interval_list', default=[1], type=int, nargs='+')
-
-
-    parser.add_argument('--seed', default=123, type=int)
-    args = parser.parse_args()
-
-
+def main(args):
     #### create dataloader
     print("===> Loading datasets")
     file_name = sorted(os.listdir(args.data_lr))
@@ -165,6 +148,22 @@ def getOpt():
     return opt
 
 if __name__ == '__main__':
-    opt = getOpt()
-    main(opt)
+    parser = argparse.ArgumentParser()
+    # dataloader
+    parser.add_argument('--epochs', default=100, type=int)
+    parser.add_argument('--patch_size_w', default=256, type=int)
+    parser.add_argument('--patch_size_h', default=128, type=int)
+    parser.add_argument('--data-lr', type=str, metavar='PATH', default='/home/yons/data/train5/lr')
+    parser.add_argument('--data-hr', type=str, metavar='PATH', default='/home/yons/data/train5/hr_small')
+    parser.add_argument('--workers', default=3, type=int)
+    parser.add_argument('--batch_size', default=16, type=int)
+    parser.add_argument('--scale', default=1, type=int)
+    parser.add_argument('--n_frames', default=5, type=int)
+    parser.add_argument('--interval_list', default=[1], type=int, nargs='+')
+
+    parser.add_argument('--seed', default=123, type=int)
+    args = parser.parse_args()
+
+
+    main(args)
 

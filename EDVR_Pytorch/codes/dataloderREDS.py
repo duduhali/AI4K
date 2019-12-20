@@ -3,15 +3,16 @@ import numpy as np
 import cv2
 import torch
 from torch.utils.data import Dataset
-import my_utils as util
+from utils import my_utils as util
 import os.path as osp
 
 class DatasetLoader(Dataset):
-    def __init__(self, lr_list, hr_list, patch_size, scale,n_frames,interval_list):
+    def __init__(self, lr_list, hr_list, patch_size_w, patch_size_h, scale,n_frames,interval_list):
         super(DatasetLoader, self).__init__()
         self.lr_list = lr_list
         self.hr_list = hr_list
-        self.patch_size = patch_size
+        self.patch_size_w = patch_size_w
+        self.patch_size_h = patch_size_h
         self.scale = scale
         self.interval_list = interval_list
         self.half_N_frames = n_frames // 2
@@ -56,16 +57,16 @@ class DatasetLoader(Dataset):
 
             # randomly crop
             height, width, channel = hr_data.shape
-            hr_size = self.patch_size * self.scale
+            hr_size_w,hr_size_h = self.patch_size_w * self.scale, self.patch_size_h * self.scale
             lr_height = height // self.scale
             lr_width = width // self.scale
 
-            rnd_h = random.randint(0, max(0, lr_height - self.patch_size))
-            rnd_w = random.randint(0, max(0, lr_width - self.patch_size))
-            img_lr_list = [one_data[rnd_h:rnd_h + self.patch_size, rnd_w:rnd_w + self.patch_size, :] for one_data in lr_data_list]
+            rnd_h = random.randint(0, max(0, lr_height - self.patch_size_h))
+            rnd_w = random.randint(0, max(0, lr_width - self.patch_size_w))
+            img_lr_list = [one_data[rnd_h:rnd_h + self.patch_size_h, rnd_w:rnd_w + self.patch_size_w, :] for one_data in lr_data_list]
 
             rnd_h_hr, rnd_w_hr = int(rnd_h * self.scale), int(rnd_w * self.scale)
-            img_hr = hr_data[rnd_h_hr:rnd_h_hr + hr_size, rnd_w_hr:rnd_w_hr + hr_size, :]
+            img_hr = hr_data[rnd_h_hr:rnd_h_hr + hr_size_h, rnd_w_hr:rnd_w_hr + hr_size_w, :]
 
 
             # augmentation - flip, rotate

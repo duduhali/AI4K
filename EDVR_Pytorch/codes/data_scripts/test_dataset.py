@@ -19,9 +19,9 @@ def test(args):
             print(one)
         hr_list.extend(hr_tmp)
 
-    data_set = DatasetLoader(lr_list, hr_list, patch_size=args.patch_size,
+    data_set = DatasetLoader(lr_list, hr_list, batch_size_w=args.batch_size_w,batch_size_h=args.batch_size_h,
                              scale=args.scale, n_frames=args.n_frames,interval_list=args.interval_list)
-    train_loader = DataLoader(data_set, batch_size=args.batch_size, num_workers=args.workers, shuffle=True,
+    train_loader = DataLoader(data_set, num_workers=args.workers, shuffle=True,
                               pin_memory=False, drop_last=True)
 
     for i, train_data in enumerate(train_loader):
@@ -73,7 +73,8 @@ def get_show_data(d):
 from matplotlib import pyplot as plt
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--patch_size', default=128, type=int)
+    parser.add_argument('--patch_size_w', default=256, type=int)
+    parser.add_argument('--patch_size_h', default=128, type=int)
     parser.add_argument('--data-lr', type=str, metavar='PATH', default='E:/2file/lr')
     parser.add_argument('--data-hr', type=str, metavar='PATH', default='E:/2file/hr_small')
     parser.add_argument('--workers', default=1, type=int)
