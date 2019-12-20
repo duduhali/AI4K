@@ -19,21 +19,20 @@ def test(args):
             print(one)
         hr_list.extend(hr_tmp)
 
-    data_set = DatasetLoader(lr_list, hr_list, batch_size_w=args.batch_size_w,batch_size_h=args.batch_size_h,
-                             scale=args.scale, n_frames=args.n_frames,interval_list=args.interval_list)
-    train_loader = DataLoader(data_set, num_workers=args.workers, shuffle=True,
+    data_set = DatasetLoader(lr_list, hr_list, size_w=args.size_w, size_h=args.size_h, scale=args.scale,
+                             n_frames=args.n_frames,interval_list=args.interval_list,border_mode=args.border_mode,
+                             random_reverse=args.random_reverse)
+    train_loader = DataLoader(data_set, batch_size=args.batch_size,num_workers=args.workers, shuffle=True,
                               pin_memory=False, drop_last=True)
 
     for i, train_data in enumerate(train_loader):
-        img_lrs = train_data['lrs']
-        img_hr = train_data['hr']
-        lr_file = train_data['key']
-        print(lr_file)
+        img_lrs = train_data['LRs']
+        img_hr = train_data['HR']
         print(img_lrs.shape)
         print(img_hr.shape)
 
 
-        # show(img_lrs,img_hr)
+        show(img_lrs,img_hr)
 
         if i>=0:
             break
@@ -73,8 +72,8 @@ def get_show_data(d):
 from matplotlib import pyplot as plt
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--patch_size_w', default=256, type=int)
-    parser.add_argument('--patch_size_h', default=128, type=int)
+    parser.add_argument('--size_w', default=512, type=int)
+    parser.add_argument('--size_h', default=256, type=int)
     parser.add_argument('--data-lr', type=str, metavar='PATH', default='E:/2file/lr')
     parser.add_argument('--data-hr', type=str, metavar='PATH', default='E:/2file/hr_small')
     parser.add_argument('--workers', default=1, type=int)
@@ -82,6 +81,8 @@ if __name__ == '__main__':
     parser.add_argument('--scale', default=1, type=int)
     parser.add_argument('--n_frames', default=5, type=int)
     parser.add_argument('--interval_list', default=[1], type=int, nargs='+')
+    parser.add_argument('--border_mode', default=True, type=bool)
+    parser.add_argument('--random_reverse', default=True, type=bool)
 
     args = parser.parse_args()
     test(args)
