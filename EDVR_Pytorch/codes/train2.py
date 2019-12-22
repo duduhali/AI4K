@@ -1,19 +1,18 @@
 import os
 import random
-from glob import glob
 import argparse
 from torch.utils.data import DataLoader
 import numpy as np
 import torch
 from torch.nn.parallel import DataParallel
 import torch.backends.cudnn as cudnn
-from dataloderREDS import DatasetLoader
+from dataloder import DatasetLoader
 from models.loss import CharbonnierLoss
 import models.archs.EDVR_arch as EDVR_arch
 from tqdm import tqdm
-from utils.my_utils import AverageMeter,psnr_cal
+from utils.my_utils import AverageMeter,psnr_cal_0_1
 from collections import OrderedDict
-
+from glob import glob
 
 def one_epoch_train_tqdm(model, optimizer, criterion, data_len, train_loader, epoch, epochs, batch_size, lr):
     model.train()
@@ -40,8 +39,10 @@ def one_epoch_train_tqdm(model, optimizer, criterion, data_len, train_loader, ep
             data_y = data_y.cpu()
             data_y = data_y.numpy().astype(np.float32)
 
-            psnr = psnr_cal(pred, data_y)
-            losses.update(loss.item())
+            psnr = psnr_cal_0_1(pred, data_y)
+            # 3 : channel      255: data_y range [0,1]
+            mean_loss = loss.item() * 255 / (args.batch_size * 3 * ((args.size_w * args.scale)*(args.size_h * args.scale)))
+            losses.update(mean_loss)
             psnrs.update(psnr)
 
             t.set_postfix(loss='Loss: {losses.val:.3f} ({losses.avg:.3f})'
@@ -52,20 +53,8 @@ def one_epoch_train_tqdm(model, optimizer, criterion, data_len, train_loader, ep
     return losses, psnrs
 
 def main(args):
-    #### create dataloader
     print("===> Loading datasets")
-    file_name = sorted(os.listdir(args.data_lr))
-    lr_list = []
-    hr_list = []
-    for one in file_name:
-        lr_tmp = sorted(glob(os.path.join(args.data_lr, one, '*.png')))
-        lr_list.extend(lr_tmp)
-        hr_tmp = sorted(glob(os.path.join(args.data_hr, one, '*.png')))
-        if len(hr_tmp) != 100:
-            print(one)
-        hr_list.extend(hr_tmp)
-
-    data_set = DatasetLoader(lr_list, hr_list, size_w=args.size_w, size_h=args.size_h, scale=args.scale,
+    data_set = DatasetLoader(args.data_lr, args.data_hr, size_w=args.size_w, size_h=args.size_h, scale=args.scale,
                              n_frames=args.n_frames, interval_list=args.interval_list, border_mode=args.border_mode,
                              random_reverse=args.random_reverse)
     train_loader = DataLoader(data_set, batch_size=args.batch_size, num_workers=args.workers, shuffle=True,
@@ -83,23 +72,13 @@ def main(args):
 
     print("===> Building model")
     #### create model
-    # network_G['predeblur'] = True  # ** 是否使用一个预编码层，它的作用是对输入 HxW 经过下采样得到 H/4xW/4 的feature，以便符合后面的网络
-    # network_G['HR_in'] = True  # ** 很重要！！只要你的输入与输出是同样分辨率，就要求设置为true
-    # network_G['w_TSA'] = True  # ** 是否使用TSA模块
-    model = EDVR_arch.EDVR(nf=64, nframes=5, groups=8, front_RBs=5, back_RBs=10,
-                           center=None, predeblur=True, HR_in=True, w_TSA=True)
+    model = EDVR_arch.EDVR(nf=args.nf, nframes=args.n_frames, groups=args.groups, front_RBs=args.front_RBs, back_RBs=args.back_RBs,
+                           center=args.center, predeblur=args.predeblur, HR_in=args.HR_in, w_TSA=args.w_TSA)
     criterion = CharbonnierLoss()
     print("===> Setting GPU")
     model = DataParallel(model,device_ids=device_ids)
     model = model.cuda()
     criterion = criterion.cuda()
-
-    optim_params = []
-    for k, v in model.named_parameters():
-        if v.requires_grad:
-            optim_params.append(v)
-    optimizer = torch.optim.Adam(optim_params, lr=args.lr, weight_decay=args.weight_decay,
-                                 betas=(args.beta1, args.beta2))
 
     print(model)
 
@@ -127,10 +106,14 @@ def main(args):
             # 如果文件中有lr，则不用启动参数
             args.lr = checkpoint.get('lr', args.lr)
 
-        if args.start_epoch != 0:
-            # 如果设置了 start_epoch 则不用checkpoint中的epoch参数
-            start_epoch = args.start_epoch
 
+        # 如果设置了 start_epoch 则不用checkpoint中的epoch参数
+        start_epoch = args.start_epoch if args.start_epoch != 0 else start_epoch
+
+    #如果use_current_lr大于0 测代替作为lr
+    args.lr = args.use_current_lr if args.use_current_lr > 0 else args.lr
+    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
+                                 lr=args.lr, weight_decay=args.weight_decay, betas=(args.beta1, args.beta2),eps=1e-8)
 
     #### training
     print("===> Training")
@@ -140,11 +123,10 @@ def main(args):
                                              args.batch_size, optimizer.param_groups[0]["lr"])
 
         # save model
-        if epoch %9 != 0:
-            continue
-
-        model_out_path = os.path.join(args.checkpoint,
-                                      "model_epoch_%04d_reds_loss_%.3f_psnr_%.3f.pth" % (epoch, losses.avg, psnrs.avg))
+        # if epoch %9 != 0:
+        #     continue
+        model_out_path = os.path.join(args.checkpoint,"model_epoch_%04d_edvr_loss_%.3f_psnr_%.3f.pth" %
+                                      (epoch, losses.avg, psnrs.avg))
         if not os.path.exists(args.checkpoint):
             os.makedirs(args.checkpoint)
         torch.save({
@@ -166,33 +148,41 @@ def adjust_lr(opt, epoch):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # dataloader
-    parser.add_argument('--size_w', default=128, type=int)
-    parser.add_argument('--size_h', default=128, type=int)
-    parser.add_argument('--data-lr', type=str, metavar='PATH', default='/home/yons/data/train5/lr')
-    parser.add_argument('--data-hr', type=str, metavar='PATH', default='/home/yons/data/train5/hr_small')
-    parser.add_argument('--workers', default=3, type=int)
-    parser.add_argument('--batch_size', default=16, type=int)
-    parser.add_argument('--scale', default=1, type=int)
+    parser.add_argument('--size_w', default=64, type=int)
+    parser.add_argument('--size_h', default=64, type=int)
+    parser.add_argument('--data-lr', type=str, metavar='PATH', default='/home/yons/data/train_lr')
+    parser.add_argument('--data-hr', type=str, metavar='PATH', default='/home/yons/data/train_hr')
+    parser.add_argument('--scale', default=4, type=int)
     parser.add_argument('--n_frames', default=5, type=int)
-    parser.add_argument('--interval_list', default=[1], type=int, nargs='+')
+    parser.add_argument('--interval_list', default=[1], type=int, nargs='+') #序列取值间隔
+    parser.add_argument('--random_reverse', default=True, type=bool) #是否随机反转序列
     parser.add_argument('--border_mode', default=True, type=bool)
-    parser.add_argument('--random_reverse', default=True, type=bool)
-
-    #train
-    parser.add_argument('--epochs', type=int, default=100)
-    parser.add_argument("--start_epoch", default=0, type=int)
-
+    parser.add_argument('--center', default=0, type=int)   #序列中和目标帧对应的帧的位置
     #model
+    parser.add_argument('--nf', default=64, type=int)
+    parser.add_argument('--groups', default=8, type=int)
+    parser.add_argument('--front_RBs', default=5, type=int)
+    parser.add_argument('--back_RBs', default=40, type=int)
+    parser.add_argument('--predeblur', default=True, type=bool) #是否使用滤波
+    parser.add_argument('--HR_in', default=False, type=bool) # 很重要！！输入与输出是同样分辨率，就要求设置为true
+    parser.add_argument('--w_TSA', default=True, type=bool)  # 是否使用TSA模块
+
     parser.add_argument('--seed', default=123, type=int)
     parser.add_argument('--lr', type=float, default=4e-4)
+    parser.add_argument('--use_current_lr', type=float, default=-1)
     parser.add_argument('--weight_decay', type=float, default=0)
     parser.add_argument('--beta1', type=float, default=0.9)
     parser.add_argument('--beta2', type=float, default=0.99)
 
+    # train
+    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument("--start_epoch", default=0, type=int)
+    parser.add_argument('--workers', default=32, type=int)
+    parser.add_argument('--batch_size', default=32, type=int)
 
     # check point
-    parser.add_argument("--resume", default='checkpoint', type=str)
-    parser.add_argument("--checkpoint", default='checkpoint', type=str)
+    parser.add_argument("--resume", default='weights', type=str)
+    parser.add_argument("--checkpoint", default='weights', type=str)
     parser.add_argument('--print_freq', default=100, type=int)
 
     args = parser.parse_args()
@@ -200,3 +190,9 @@ if __name__ == '__main__':
 
     main(args)
 
+    # nohup python3 train.py>> output.log 2>&1 &
+    # ps -aux|grep train.py
+    # pgrep python3 | xargs kill -s 9
+    # python3 train.py
+
+    # nvidia-smi

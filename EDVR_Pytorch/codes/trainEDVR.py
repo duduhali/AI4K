@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from torch.nn.parallel import DataParallel
 import torch.backends.cudnn as cudnn
-from dataloderREDS import DatasetLoader
+from dataloder import DatasetLoader
 from models.loss import CharbonnierLoss
 import models.archs.EDVR_arch as EDVR_arch
 from tqdm import tqdm
@@ -54,20 +54,8 @@ def one_epoch_train_tqdm(model, optimizer, criterion, data_len, train_loader, ep
     return losses, psnrs
 
 def main(args):
-    #### create dataloader
     print("===> Loading datasets")
-    file_name = sorted(os.listdir(args.data_lr))
-    lr_list = []
-    hr_list = []
-    for one in file_name:
-        lr_tmp = sorted(glob(os.path.join(args.data_lr, one, '*.png')))
-        lr_list.extend(lr_tmp)
-        hr_tmp = sorted(glob(os.path.join(args.data_hr, one, '*.png')))
-        if len(hr_tmp) != 100:
-            print(one)
-        hr_list.extend(hr_tmp)
-
-    data_set = DatasetLoader(lr_list, hr_list, size_w=args.size_w, size_h=args.size_h, scale=args.scale,
+    data_set = DatasetLoader(args.data_lr, args.data_hr, size_w=args.size_w, size_h=args.size_h, scale=args.scale,
                              n_frames=args.n_frames, interval_list=args.interval_list, border_mode=args.border_mode,
                              random_reverse=args.random_reverse)
     train_loader = DataLoader(data_set, batch_size=args.batch_size, num_workers=args.workers, shuffle=True,
@@ -96,9 +84,6 @@ def main(args):
     model = model.cuda()
     criterion = criterion.cuda()
 
-    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
-                                 lr=args.lr, weight_decay=args.weight_decay,betas=(args.beta1, args.beta2))
-
     print(model)
 
     start_epoch = args.start_epoch
@@ -125,10 +110,14 @@ def main(args):
             # 如果文件中有lr，则不用启动参数
             args.lr = checkpoint.get('lr', args.lr)
 
-        if args.start_epoch != 0:
-            # 如果设置了 start_epoch 则不用checkpoint中的epoch参数
-            start_epoch = args.start_epoch
 
+        # 如果设置了 start_epoch 则不用checkpoint中的epoch参数
+        start_epoch = args.start_epoch if args.start_epoch != 0 else start_epoch
+
+    #如果use_current_lr大于0 测代替作为lr
+    args.lr = args.use_current_lr if args.use_current_lr > 0 else args.lr
+    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
+                                 lr=args.lr, weight_decay=args.weight_decay, betas=(args.beta1, args.beta2),eps=1e-8)
 
     #### training
     print("===> Training")
@@ -187,6 +176,7 @@ if __name__ == '__main__':
     #model
     parser.add_argument('--seed', default=123, type=int)
     parser.add_argument('--lr', type=float, default=1e-4)
+    parser.add_argument('--use_current_lr', type=float, default=-1)
     parser.add_argument('--weight_decay', type=float, default=0)
     parser.add_argument('--beta1', type=float, default=0.9)
     parser.add_argument('--beta2', type=float, default=0.99)

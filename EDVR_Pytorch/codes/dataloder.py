@@ -5,10 +5,23 @@ import torch
 from torch.utils.data import Dataset
 from utils import my_utils as util
 import os.path as osp
+from glob import glob
+import os
 
 class DatasetLoader(Dataset):
-    def __init__(self, lr_list, hr_list, size_w, size_h, scale,n_frames,interval_list,border_mode,random_reverse=False):
+    def __init__(self, data_lr, data_hr, size_w, size_h, scale,n_frames,interval_list,border_mode,random_reverse=False):
         super(DatasetLoader, self).__init__()
+        file_name = sorted(os.listdir(data_lr))
+        lr_list = []
+        hr_list = []
+        for one in file_name:
+            lr_tmp = sorted(glob(osp.join(data_lr, one, '*.png')))
+            lr_list.extend(lr_tmp)
+            hr_tmp = sorted(glob(osp.join(data_hr, one, '*.png')))
+            if len(hr_tmp) != 100:
+                print(one)
+            hr_list.extend(hr_tmp)
+
         self.lr_list = lr_list
         self.hr_list = hr_list
         self.size_w = size_w

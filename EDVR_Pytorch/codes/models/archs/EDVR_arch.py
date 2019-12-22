@@ -25,14 +25,18 @@ class Predeblur_ResNet_Pyramid(nn.Module):
         else:
             self.conv_first = nn.Conv2d(3, nf, 3, 1, 1, bias=True)
         basic_block = functools.partial(arch_util.ResidualBlock_noBN, nf=nf)
+
         self.RB_L1_1 = basic_block()
         self.RB_L1_2 = basic_block()
         self.RB_L1_3 = basic_block()
         self.RB_L1_4 = basic_block()
         self.RB_L1_5 = basic_block()
+
         self.RB_L2_1 = basic_block()
         self.RB_L2_2 = basic_block()
+
         self.RB_L3_1 = basic_block()
+
         self.deblur_L2_conv = nn.Conv2d(nf, nf, 3, 2, 1, bias=True)
         self.deblur_L3_conv = nn.Conv2d(nf, nf, 3, 2, 1, bias=True)
 
@@ -119,7 +123,7 @@ class PCD_Align(nn.Module):
         L1_fea = self.L1_dcnpack([nbr_fea_l[0], L1_offset])
         L2_fea = F.interpolate(L2_fea, scale_factor=2, mode='bilinear', align_corners=False)
         L1_fea = self.L1_fea_conv(torch.cat([L1_fea, L2_fea], dim=1))
-        # Cascading
+        # Cascading 级联
         offset = torch.cat([L1_fea, ref_fea_l[0]], dim=1)
         offset = self.lrelu(self.cas_offset_conv1(offset))
         offset = self.lrelu(self.cas_offset_conv2(offset))
