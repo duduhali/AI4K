@@ -1,18 +1,20 @@
 import os
 import random
+from glob import glob
 import argparse
 from torch.utils.data import DataLoader
 import numpy as np
 import torch
+import time
 from torch.nn.parallel import DataParallel
 import torch.backends.cudnn as cudnn
 from dataloder import DatasetLoader
 from models.loss import CharbonnierLoss
 import models.archs.EDVR_arch as EDVR_arch
 from tqdm import tqdm
-from utils.my_utils import AverageMeter,psnr_cal_0_1
+from my_utils import AverageMeter,psnr_cal_0_1
 from collections import OrderedDict
-from glob import glob
+
 
 def one_epoch_train_tqdm(model, optimizer, criterion, data_len, train_loader, epoch, epochs, batch_size, lr):
     model.train()
@@ -52,6 +54,59 @@ def one_epoch_train_tqdm(model, optimizer, criterion, data_len, train_loader, ep
             t.update(batch_size)
     return losses, psnrs
 
+def one_epoch_train_logger(model,optimizer,criterion,data_len,train_loader,epoch,epochs,batch_size,lr):
+    model.train()
+    batch_time = AverageMeter()
+    data_time = AverageMeter()
+    losses = AverageMeter()
+    psnrs = AverageMeter()
+    end = time.time()
+    for iteration, data in enumerate(train_loader):
+        data_time.update(time.time() - end)
+
+        data_x = data['LRs'].cuda()
+        data_y = data['HR'].cuda()
+
+        pred = model(data_x)
+        # pix loss
+        loss = criterion(pred, data_y)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        pred = pred.cpu()
+        pred = pred.detach().numpy().astype(np.float32)
+
+        data_y = data_y.cpu()
+        data_y = data_y.numpy().astype(np.float32)
+
+        psnr = psnr_cal_0_1(pred, data_y)
+        # 3 : channel      255: data_y range [0,1]
+        mean_loss = loss.item() * 255 / (
+                args.batch_size * 3 * ((args.size_w * args.scale) * (args.size_h * args.scale)))
+        losses.update(mean_loss)
+        psnrs.update(psnr)
+
+        batch_time.update(time.time() - end)
+
+        end = time.time()
+        use_time = batch_time.sum
+        time_h = use_time//3600
+        time_m = (use_time-time_h*3600)//60
+        show_time =  '%d:%d:%d'%(time_h,time_m,use_time%60)
+
+        if iteration % args.print_freq == 0:
+            print('Epoch:[{0}/{1}][{2}/{3}]  lr={4}\t {5} \t'
+                  'data_time: {data_time.val:.3f} ({data_time.avg:.3f})\t'
+                  'batch_time: {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                  'Loss: {losses.val:.3f} ({losses.avg:.3f})\t'
+                  'PNSR: {psnrs.val:.3f} ({psnrs.avg:.3f})'
+                  .format(epoch, epochs, iteration, data_len // batch_size, lr, show_time,
+                          data_time=data_time,batch_time=batch_time,  losses=losses, psnrs=psnrs))
+
+    return losses,psnrs
+
 def main(args):
     print("===> Loading datasets")
     data_set = DatasetLoader(args.data_lr, args.data_hr, size_w=args.size_w, size_h=args.size_h, scale=args.scale,
@@ -72,7 +127,8 @@ def main(args):
 
     print("===> Building model")
     #### create model
-    model = EDVR_arch.EDVR(nf=args.nf, nframes=args.n_frames, groups=args.groups, front_RBs=args.front_RBs, back_RBs=args.back_RBs,
+    model = EDVR_arch.EDVR(nf=args.nf, nframes=args.n_frames, groups=args.groups, front_RBs=args.front_RBs,
+                           back_RBs=args.back_RBs,
                            center=args.center, predeblur=args.predeblur, HR_in=args.HR_in, w_TSA=args.w_TSA)
     criterion = CharbonnierLoss()
     print("===> Setting GPU")
@@ -80,7 +136,7 @@ def main(args):
     model = model.cuda()
     criterion = criterion.cuda()
 
-    print(model)
+    # print(model)
 
     start_epoch = args.start_epoch
     # optionally resume from a checkpoint
@@ -119,12 +175,13 @@ def main(args):
     print("===> Training")
     for epoch in range(start_epoch, args.epochs):
         adjust_lr(optimizer, epoch)
-        losses, psnrs = one_epoch_train_tqdm(model, optimizer, criterion, len(data_set), train_loader, epoch, args.epochs,
+        losses, psnrs = one_epoch_train_logger(model, optimizer, criterion, len(data_set), train_loader, epoch, args.epochs,
                                              args.batch_size, optimizer.param_groups[0]["lr"])
 
         # save model
         # if epoch %9 != 0:
         #     continue
+
         model_out_path = os.path.join(args.checkpoint,"model_epoch_%04d_edvr_loss_%.3f_psnr_%.3f.pth" %
                                       (epoch, losses.avg, psnrs.avg))
         if not os.path.exists(args.checkpoint):
@@ -152,37 +209,43 @@ if __name__ == '__main__':
     parser.add_argument('--size_h', default=64, type=int)
     parser.add_argument('--data-lr', type=str, metavar='PATH', default='/home/yons/data/train_lr')
     parser.add_argument('--data-hr', type=str, metavar='PATH', default='/home/yons/data/train_hr')
+    parser.add_argument('--workers', default=32, type=int)
+    parser.add_argument('--batch_size', default=56, type=int)
     parser.add_argument('--scale', default=4, type=int)
     parser.add_argument('--n_frames', default=5, type=int)
-    parser.add_argument('--interval_list', default=[1], type=int, nargs='+') #序列取值间隔
-    parser.add_argument('--random_reverse', default=True, type=bool) #是否随机反转序列
+    parser.add_argument('--interval_list', default=[1], type=int, nargs='+')
+
+    parser.add_argument('--random_reverse', default=True, type=bool)
+
     parser.add_argument('--border_mode', default=True, type=bool)
-    parser.add_argument('--center', default=0, type=int)   #序列中和目标帧对应的帧的位置
-    #model
+    parser.add_argument('--center', default=0, type=int)
+
+    # model
     parser.add_argument('--nf', default=64, type=int)
     parser.add_argument('--groups', default=8, type=int)
     parser.add_argument('--front_RBs', default=5, type=int)
-    parser.add_argument('--back_RBs', default=40, type=int)
-    parser.add_argument('--predeblur', default=True, type=bool) #是否使用滤波
-    parser.add_argument('--HR_in', default=False, type=bool) # 很重要！！输入与输出是同样分辨率，就要求设置为true
+    parser.add_argument('--back_RBs', default=10, type=int)
+    parser.add_argument('--predeblur', default=False, type=bool)  # 是否使用滤波
+    parser.add_argument('--HR_in', default=False, type=bool)  # 很重要！！输入与输出是同样分辨率，就要求设置为true
     parser.add_argument('--w_TSA', default=True, type=bool)  # 是否使用TSA模块
 
+
+    #train
+    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument("--start_epoch", default=0, type=int)
+
+    #model
     parser.add_argument('--seed', default=123, type=int)
-    parser.add_argument('--lr', type=float, default=4e-4)
+    parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--use_current_lr', type=float, default=-1)
     parser.add_argument('--weight_decay', type=float, default=0)
     parser.add_argument('--beta1', type=float, default=0.9)
     parser.add_argument('--beta2', type=float, default=0.99)
 
-    # train
-    parser.add_argument('--epochs', type=int, default=100)
-    parser.add_argument("--start_epoch", default=0, type=int)
-    parser.add_argument('--workers', default=32, type=int)
-    parser.add_argument('--batch_size', default=32, type=int)
 
     # check point
-    parser.add_argument("--resume", default='weights', type=str)
-    parser.add_argument("--checkpoint", default='weights', type=str)
+    parser.add_argument("--resume", default='checkpoint', type=str)
+    parser.add_argument("--checkpoint", default='checkpoint', type=str)
     parser.add_argument('--print_freq', default=100, type=int)
 
     args = parser.parse_args()
@@ -190,9 +253,9 @@ if __name__ == '__main__':
 
     main(args)
 
-    # nohup python3 train.py>> output.log 2>&1 &
-    # ps -aux|grep train.py
+    # nohup python3 trainEDVR.py>> output.log 2>&1 &
+    # ps -aux|grep trainEDVR.py
     # pgrep python3 | xargs kill -s 9
-    # python3 train.py
+    # python3 trainEDVR.py
 
     # nvidia-smi

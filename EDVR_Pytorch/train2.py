@@ -1,6 +1,5 @@
 import os
 import random
-from glob import glob
 import argparse
 from torch.utils.data import DataLoader
 import numpy as np
@@ -11,9 +10,9 @@ from dataloder import DatasetLoader
 from models.loss import CharbonnierLoss
 import models.archs.EDVR_arch as EDVR_arch
 from tqdm import tqdm
-from utils.my_utils import AverageMeter,psnr_cal_0_1
+from my_utils import AverageMeter,psnr_cal_0_1
 from collections import OrderedDict
-
+from glob import glob
 
 def one_epoch_train_tqdm(model, optimizer, criterion, data_len, train_loader, epoch, epochs, batch_size, lr):
     model.train()
@@ -73,11 +72,8 @@ def main(args):
 
     print("===> Building model")
     #### create model
-    # network_G['predeblur'] = True  # ** 是否使用一个预编码层，它的作用是对输入 HxW 经过下采样得到 H/4xW/4 的feature，以便符合后面的网络
-    # network_G['HR_in'] = True  # ** 很重要！！只要你的输入与输出是同样分辨率，就要求设置为true
-    # network_G['w_TSA'] = True  # ** 是否使用TSA模块
-    model = EDVR_arch.EDVR(nf=64, nframes=5, groups=8, front_RBs=5, back_RBs=10,
-                           center=args.center, predeblur=False, HR_in=False, w_TSA=True)
+    model = EDVR_arch.EDVR(nf=args.nf, nframes=args.n_frames, groups=args.groups, front_RBs=args.front_RBs, back_RBs=args.back_RBs,
+                           center=args.center, predeblur=args.predeblur, HR_in=args.HR_in, w_TSA=args.w_TSA)
     criterion = CharbonnierLoss()
     print("===> Setting GPU")
     model = DataParallel(model,device_ids=device_ids)
@@ -129,7 +125,6 @@ def main(args):
         # save model
         # if epoch %9 != 0:
         #     continue
-
         model_out_path = os.path.join(args.checkpoint,"model_epoch_%04d_edvr_loss_%.3f_psnr_%.3f.pth" %
                                       (epoch, losses.avg, psnrs.avg))
         if not os.path.exists(args.checkpoint):
@@ -157,34 +152,37 @@ if __name__ == '__main__':
     parser.add_argument('--size_h', default=64, type=int)
     parser.add_argument('--data-lr', type=str, metavar='PATH', default='/home/yons/data/train_lr')
     parser.add_argument('--data-hr', type=str, metavar='PATH', default='/home/yons/data/train_hr')
-    parser.add_argument('--workers', default=32, type=int)
-    parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--scale', default=4, type=int)
     parser.add_argument('--n_frames', default=5, type=int)
-    parser.add_argument('--interval_list', default=[1], type=int, nargs='+')
-
-    parser.add_argument('--random_reverse', default=True, type=bool)
-
+    parser.add_argument('--interval_list', default=[1], type=int, nargs='+') #序列取值间隔
+    parser.add_argument('--random_reverse', default=True, type=bool) #是否随机反转序列
     parser.add_argument('--border_mode', default=True, type=bool)
-    parser.add_argument('--center', default=0, type=int)
-
-
-    #train
-    parser.add_argument('--epochs', type=int, default=100)
-    parser.add_argument("--start_epoch", default=0, type=int)
-
+    parser.add_argument('--center', default=0, type=int)   #序列中和目标帧对应的帧的位置
     #model
+    parser.add_argument('--nf', default=64, type=int)
+    parser.add_argument('--groups', default=8, type=int)
+    parser.add_argument('--front_RBs', default=5, type=int)
+    parser.add_argument('--back_RBs', default=40, type=int)
+    parser.add_argument('--predeblur', default=True, type=bool) #是否使用滤波
+    parser.add_argument('--HR_in', default=False, type=bool) # 很重要！！输入与输出是同样分辨率，就要求设置为true
+    parser.add_argument('--w_TSA', default=True, type=bool)  # 是否使用TSA模块
+
     parser.add_argument('--seed', default=123, type=int)
-    parser.add_argument('--lr', type=float, default=1e-4)
+    parser.add_argument('--lr', type=float, default=4e-4)
     parser.add_argument('--use_current_lr', type=float, default=-1)
     parser.add_argument('--weight_decay', type=float, default=0)
     parser.add_argument('--beta1', type=float, default=0.9)
     parser.add_argument('--beta2', type=float, default=0.99)
 
+    # train
+    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument("--start_epoch", default=0, type=int)
+    parser.add_argument('--workers', default=32, type=int)
+    parser.add_argument('--batch_size', default=32, type=int)
 
     # check point
-    parser.add_argument("--resume", default='checkpoint', type=str)
-    parser.add_argument("--checkpoint", default='checkpoint', type=str)
+    parser.add_argument("--resume", default='weights', type=str)
+    parser.add_argument("--checkpoint", default='weights', type=str)
     parser.add_argument('--print_freq', default=100, type=int)
 
     args = parser.parse_args()

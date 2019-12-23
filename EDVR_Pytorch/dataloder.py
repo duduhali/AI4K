@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 import torch
 from torch.utils.data import Dataset
-from utils import my_utils as util
+import my_utils as util
 import os.path as osp
 from glob import glob
 import os
