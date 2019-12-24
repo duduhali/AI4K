@@ -1,22 +1,29 @@
-import torch
-import torch.nn as nn
-from torch.autograd import Variable
+import argparse
+from model.RCAN3D import RCAN3D
 
-lr_file = '/aaa/bbb/1050345\\050.png'
-lr_file = lr_file.replace('\\','/')
 
-file_name = lr_file.split('/')[-1]
-name = file_name.split('.')[0]
-print(name)
 
-x = int(name)
-b = x-1 if x!=1 else x+1
-f = x+1 if x!=100 else x-1
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    args = parser.parse_args()
 
-b_file = lr_file.replace(file_name,'%03d.png'%b)
-f_file = lr_file.replace(file_name,'%03d.png'%f)
 
-print(b_file)
-print(f_file)
+    args.n_frames = 8
+    args.n_res_blocks = 4
+    args.n_resgroups = 2
+    args.n_feats = 64
+    args.reduction = 16
+    args.n_colors = 3
+    args.scale = 4
+    args.rgb_range = 255
+
+
+
+    model = RCAN3D(args)
+    print(model)
+
+
+
+
 
 

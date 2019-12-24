@@ -67,57 +67,6 @@ def one_epoch_train_tqdm(model,optimizer,criterion,data_len,train_loader,epoch,e
             t.update(batch_size)
     return losses, psnrs
 
-def one_epoch_train_logger(model,optimizer,criterion,data_len,train_loader,epoch,epochs,batch_size,lr):
-    model.train()
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
-    losses = AverageMeter()
-    psnrs = AverageMeter()
-
-    end = time.time()
-    for iteration, data in enumerate(train_loader):
-        data_time.update(time.time() - end)
-
-        data_x, data_y = Variable(data[0]), Variable(data[1], requires_grad=False)
-        data_x = data_x.type(torch.FloatTensor)
-        data_y = data_y.type(torch.FloatTensor)
-        data_x = data_x.cuda()
-        data_y = data_y.cuda()
-
-        pred = model(data_x)
-        # pix loss
-        loss = criterion(pred, data_y)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        pred = pred.cpu()
-        pred = pred.detach().numpy().astype(np.float32)
-        data_y = data_y.cpu()
-        data_y = data_y.numpy().astype(np.float32)
-        psnr = psnr_cal_0_255(pred, data_y)
-        mean_loss = loss.item() / (args.batch_size * args.n_colors * ((args.patch_size * args.scale) ** 2))
-
-        losses.update(mean_loss)
-        psnrs.update(psnr)
-        batch_time.update(time.time() - end)
-
-        end = time.time()
-        use_time = batch_time.sum
-        time_h = use_time//3600
-        time_m = (use_time-time_h*3600)//60
-        show_time =  '%d:%d:%d'%(time_h,time_m,use_time%60)
-
-        if iteration % args.print_freq == 0:
-            print('Epoch:[{0}/{1}][{2}/{3}]  lr={4}\t {5} \t'
-                  'data_time: {data_time.val:.3f} ({data_time.avg:.3f})\t'
-                  'batch_time: {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Loss: {losses.val:.3f} ({losses.avg:.3f})\t'
-                  'PNSR: {psnrs.val:.3f} ({psnrs.avg:.3f})'
-                  .format(epoch, epochs, iteration, data_len // batch_size, lr, show_time,
-                          data_time=data_time,batch_time=batch_time,  losses=losses, psnrs=psnrs))
-
-    return losses,psnrs
 
 def main(args):
     print("===> Loading datasets")
@@ -285,7 +234,13 @@ if __name__ == '__main__':
     max_index = 200
 
 
-    main(args)
+    # main(args)
+
+
+
+
+
+
 
     # nohup python3 train.py>> output.log 2>&1 &
     # ps -aux|grep train.py

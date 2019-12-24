@@ -1,12 +1,38 @@
 import cv2
 import numpy as np
-import math
+import random
 
 
 def horizontal_flip(image, axis):
     if axis != 2:
         image = cv2.flip(image, axis)
     return image
+
+def augment(img_list, hflip=True, rot=True):
+    """horizontal flip OR rotate (0, 90, 180, 270 degrees)"""
+    hflip = hflip and random.random() < 0.5
+    vflip = rot and random.random() < 0.5
+    rot90 = rot and random.random() < 0.5
+
+    def _augment(img):
+        if hflip:
+            img = img[:, ::-1, :]
+        if vflip:
+            img = img[::-1, :, :]
+        if rot90:
+            img = img.transpose(1, 0, 2)
+        return img
+
+    return [_augment(img) for img in img_list]
+
+def read_img(path):
+    """read image by cv2
+    return: Numpy float32, HWC, RGB, [0,1]"""
+    img = cv2.imread(path) #BGR
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = img.astype(np.float32) / 255.
+    return img
+
 
 def getFileName(lr_file):
     # lr_file = '/aaa/bbb/1050345\\050.png'
@@ -46,23 +72,8 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-# def psnr_cal(pred, gt):
-#     batch = pred.shape[0]
-#     psnr = 0
-#     for i in range(batch):
-#         for j in range(3):
-#             pr = pred[i, j, :, :]
-#             hd = gt[i, j, :, :]
-#
-#             imdff = pr - hd
-#             rmse = math.sqrt(np.mean(imdff ** 2))
-#             if rmse == 0:
-#                 psnr = psnr + 45
-#                 continue
-#             psnr = psnr + 20 * math.log10(255.0 / rmse)
-#     return psnr / (batch*3)
 
-def psnr_cal(pred, gt):
+def psnr_cal_0_255(pred, gt):
     batch = pred.shape[0]
     psnr = 0
     for i in range(batch):
@@ -75,3 +86,13 @@ def psnr_cal(pred, gt):
         psnr = psnr + 10 * np.log10(255 * 255 / mse)
     return psnr / (batch)
 
+
+def psnr_cal_0_1(pred, gt):
+    batch = pred.shape[0]
+    psnr = 0
+    for i in range(batch):
+        pr = pred[i]
+        hd = gt[i]
+        mse = np.mean((pr / 1. - hd / 1.) ** 2)
+        psnr = psnr + 10* np.log10(1. / mse)
+    return psnr / (batch)
