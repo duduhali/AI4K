@@ -22,4 +22,3 @@ class Upsampler(nn.Sequential):
             m.append(nn.PixelShuffle(2))
             m.append(nn.ReLU(True))
         super(Upsampler, self).__init__(*m)
-

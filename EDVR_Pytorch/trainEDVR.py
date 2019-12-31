@@ -123,8 +123,6 @@ def main(args):
     cudnn.benchmark = True
     #cudnn.deterministic = True
 
-    device_ids = list(range(1))
-
     print("===> Building model")
     #### create model
     model = EDVR_arch.EDVR(nf=args.nf, nframes=args.n_frames, groups=args.groups, front_RBs=args.front_RBs,
@@ -132,6 +130,8 @@ def main(args):
                            center=args.center, predeblur=args.predeblur, HR_in=args.HR_in, w_TSA=args.w_TSA)
     criterion = CharbonnierLoss()
     print("===> Setting GPU")
+    gups = args.gpus if args.gpus!=0 else torch.cuda.device_count()
+    device_ids = list(range(gups))
     model = DataParallel(model,device_ids=device_ids)
     model = model.cuda()
     criterion = criterion.cuda()
@@ -175,8 +175,13 @@ def main(args):
     print("===> Training")
     for epoch in range(start_epoch, args.epochs):
         adjust_lr(optimizer, epoch)
-        losses, psnrs = one_epoch_train_logger(model, optimizer, criterion, len(data_set), train_loader, epoch, args.epochs,
+        if args.use_tqdm == 1:
+            losses, psnrs = one_epoch_train_tqdm(model, optimizer, criterion, len(data_set), train_loader, epoch, args.epochs,
                                              args.batch_size, optimizer.param_groups[0]["lr"])
+        else:
+            losses, psnrs = one_epoch_train_logger(model, optimizer, criterion, len(data_set), train_loader, epoch,
+                                                 args.epochs,
+                                                 args.batch_size, optimizer.param_groups[0]["lr"])
 
         # save model
         # if epoch %9 != 0:
@@ -205,10 +210,11 @@ def adjust_lr(opt, epoch):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # dataloader
+    parser.add_argument("--gpus", default=0, type=int)
     parser.add_argument('--size_w', default=64, type=int)
     parser.add_argument('--size_h', default=64, type=int)
-    parser.add_argument('--data-lr', type=str, metavar='PATH', default='/home/yons/data/train_lr')
-    parser.add_argument('--data-hr', type=str, metavar='PATH', default='/home/yons/data/train_hr')
+    parser.add_argument('--data-lr', type=str, metavar='PATH', default='./../train_lr')
+    parser.add_argument('--data-hr', type=str, metavar='PATH', default='./../train_hr')
     parser.add_argument('--workers', default=32, type=int)
     parser.add_argument('--batch_size', default=56, type=int)
     parser.add_argument('--scale', default=4, type=int)
@@ -231,7 +237,7 @@ if __name__ == '__main__':
 
 
     #train
-    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--epochs', type=int, default=400)
     parser.add_argument("--start_epoch", default=0, type=int)
 
     #model
@@ -247,7 +253,7 @@ if __name__ == '__main__':
     parser.add_argument("--resume", default='checkpoint', type=str)
     parser.add_argument("--checkpoint", default='checkpoint', type=str)
     parser.add_argument('--print_freq', default=100, type=int)
-
+    parser.add_argument('--use_tqdm', default=0, type=int)
     args = parser.parse_args()
 
 
@@ -257,5 +263,6 @@ if __name__ == '__main__':
     # ps -aux|grep trainEDVR.py
     # pgrep python3 | xargs kill -s 9
     # python3 trainEDVR.py
+    # python3 trainEDVR.py --use_tqdm 1 --batch_size 256
 
     # nvidia-smi

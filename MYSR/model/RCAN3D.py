@@ -57,24 +57,37 @@ class ResidualGroup(nn.Module):
         res += x
         return res
 
+class Tail2(nn.Module):
+    def __init__(self,conv, n_feats, n_colors, kernel_size,size_w,size_h, n_frames):
+        super(Tail2, self).__init__()
+        self.convt1 = nn.ConvTranspose3d(n_feats, n_feats, (1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
+        self.convt2 = nn.ConvTranspose3d(n_feats, n_feats, (1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
+        self.conv = conv(n_feats, n_colors, kernel_size)
+        self.relu = nn.ReLU(inplace=True)
+        self.shape1 = (-1, n_feats, n_frames, size_w*2, size_h*2)
+        self.shape2 = (-1, n_feats, n_frames, size_w*4, size_h*4)
+    def forward(self, x):
+        x = self.convt1(x, output_size=self.shape1)
+        x = self.relu(x)
+        x = self.convt2(x, output_size=self.shape2)
+        x = self.relu(x)
+        x = self.conv(x)
+        return x
 
 # Residual Channel Attention Network (RCAN)
 class RCAN3D(nn.Module):
     def __init__(self, args):
         super(RCAN3D, self).__init__()
-        n_frames = args.n_frames
+        size_w = args.size_w
+        size_h = args.size_h
+        n_frames = len(args.frame_interval)
         n_resgroups = args.n_resgroups      #10
         n_res_blocks = args.n_res_blocks    #20
         n_feats = args.n_feats              #64
         kernel_size = 3
         reduction = args.reduction          #16
         scale = args.scale
-        act = nn.ReLU(True)
-        # RGB mean for DIV2K
-        rgb_mean = (0.4488, 0.4371, 0.4040)
-        rgb_std = (1.0, 1.0, 1.0)
-        self.sub_mean = common.MeanShift(args.rgb_range, rgb_mean, rgb_std) #rgb_range 255
-        
+
         # define head module
         modules_head = [default_conv(args.n_colors, n_feats, kernel_size)] #n_colors 3
 
@@ -86,26 +99,19 @@ class RCAN3D(nn.Module):
 
         modules_body.append(default_conv(n_feats, n_feats, kernel_size))
 
-        # define tail module
-        modules_tail = [
-            common.Upsampler(default_conv, scale, n_feats),
-            default_conv(n_feats, args.n_colors, kernel_size)]
 
-        self.add_mean = common.MeanShift(args.rgb_range, rgb_mean, rgb_std, 1)
 
         self.head = nn.Sequential(*modules_head)
         self.body = nn.Sequential(*modules_body)
-        self.tail = nn.Sequential(*modules_tail)
+        self.tail = Tail2(default_conv, n_feats, args.n_colors, kernel_size, size_w,size_h,n_frames)
 
     def forward(self, x):
-        x = self.sub_mean(x)
         x = self.head(x)
 
         res = self.body(x)
         res += x
 
         x = self.tail(res)
-        x = self.add_mean(x)
 
         return x 
 

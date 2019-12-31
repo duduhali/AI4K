@@ -4,9 +4,6 @@ import torchvision
 import torch.nn as nn
 
 
-def make_model(args, parent=False):
-    return RCAN(args)
-
 
 # Channel Attention (CA) Layer
 class CALayer(nn.Module):

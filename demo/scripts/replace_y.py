@@ -5,34 +5,44 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
-l_file = 'E:/test/one_L.png'
-h_file = 'E:/test/one_H.png'
-# def calc_psnr(img1, img2):
-#     return 10. * torch.log10(1. / torch.mean((img1 - img2) ** 2))
-# lr = Image.open(l_file).convert('RGB')
-# hr = Image.open(h_file).convert('RGB')
-# lr = lr.resize((hr.width,hr.height), resample=Image.BICUBIC)
-# lr = np.array(lr).astype(np.float32)
-# hr = np.array(hr).astype(np.float32)
-# print(calc_psnr(torch.tensor(lr),torch.tensor(hr))) #峰值信噪比
+# l_file = 'J:/c1.png'
+# h_file = 'J:/c2.png'
+# img1 = Image.open(l_file)
+# img2 = Image.open(h_file)
+# img1 = img1.resize(img2.size, Image.BICUBIC)
+# img1.save("J:/c1_big.png")
+# img1_y, img1_cb, img1_cr = img1.convert('YCbCr').split()
+# img2_y, img2_cb, img2_cr = img2.convert('YCbCr').split()
+# out_img = Image.merge('YCbCr', [img2_y, img1_cb, img1_cr]).convert('RGB')
+# out_img.save("J:/c3.png")
 
 
+def psnr_np_0_255(y_true,y_pred):
+    mse = np.mean((y_true / 1. - y_pred / 1.) ** 2)
+    if mse < 1.0e-10:
+        return 45
+    return 10 * np.log10(255.0 * 255.0 / mse)
+#
+print('替换y通道',psnr_np_0_255(np.asarray(Image.open('J:/a3.png').convert('YCbCr')),np.asarray(Image.open('J:/a2.png').convert('YCbCr'))))
+print('只放大',psnr_np_0_255(np.asarray(Image.open('J:/a1_big.png').convert('YCbCr')),np.asarray(Image.open('J:/a2.png').convert('YCbCr'))))
+print('均值y通道',psnr_np_0_255(np.asarray(Image.open('J:/a1_big_mul.png').convert('YCbCr')),np.asarray(Image.open('J:/a2.png').convert('YCbCr'))))
+print('eval',psnr_np_0_255(np.asarray(Image.open('J:/eval.png').convert('YCbCr')),np.asarray(Image.open('J:/a2.png').convert('YCbCr'))))
 
-l_img = cv2.imread(l_file)
-h_img = cv2.imread(h_file)
-l_img = cv2.resize(l_img, (h_img.shape[1], h_img.shape[0]), interpolation=cv2.INTER_CUBIC)
-print(l_img.shape)
-# plt.imshow(l_img) #低
-# plt.show()
-# plt.imshow(h_img) #高
-# plt.show()
-l_img = cv2.cvtColor(l_img, cv2.COLOR_BGR2YCrCb)
-l_y,l_cr,l_cb = l_img[:,:,0],l_img[:,:,1],l_img[:,:,2]
-h_y,h_cr,h_cb = h_img[:,:,0],h_img[:,:,1],h_img[:,:,2]
-test = np.array([h_y,l_cr,l_cb]).transpose([1, 2, 0])
-test = cv2.cvtColor(test, cv2.COLOR_YCrCb2BGR)
-print(test.shape)
-plt.imshow(test)  # Y高 Cr低 Cb低
-plt.show()
+#
+# print('替换y通道',psnr_np_0_255(np.asarray(Image.open('J:/b3.png').convert('YCbCr')),np.asarray(Image.open('J:/b2.png').convert('YCbCr'))))
+# print('只放大',psnr_np_0_255(np.asarray(Image.open('J:/b1_big.png').convert('YCbCr')),np.asarray(Image.open('J:/b2.png').convert('YCbCr'))))
+# print('均值y通道',psnr_np_0_255(np.asarray(Image.open('J:/b1_big_mul.png').convert('YCbCr')),np.asarray(Image.open('J:/b2.png').convert('YCbCr'))))
 
-#效果并不好
+# print('替换y通道',psnr_np_0_255(np.asarray(Image.open('J:/c3.png').convert('YCbCr')),np.asarray(Image.open('J:/c2.png').convert('YCbCr'))))
+# print('只放大',psnr_np_0_255(np.asarray(Image.open('J:/c1_big.png').convert('YCbCr')),np.asarray(Image.open('J:/c2.png').convert('YCbCr'))))
+# print('均值y通道',psnr_np_0_255(np.asarray(Image.open('J:/c1_big_mul.png').convert('YCbCr')),np.asarray(Image.open('J:/c2.png').convert('YCbCr'))))
+
+# def SSIMnp(y_true , y_pred):
+#     u_true,u_pred = np.mean(y_true),np.mean(y_pred)
+#     var_true,var_pred = np.var(y_true),np.var(y_pred)
+#     std_true,std_pred = np.sqrt(var_true),np.sqrt(var_pred)
+#     c1,c2  = np.square(0.01*7), np.square(0.03*7)
+#     ssim = (2 * u_true * u_pred + c1) * (2 * std_pred * std_true + c2)
+#     denom = (u_true ** 2 + u_pred ** 2 + c1) * (var_pred + var_true + c2)
+#     return ssim / denom
+# print(SSIMnp(img1,img2))

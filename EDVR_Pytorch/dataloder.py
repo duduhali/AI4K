@@ -8,6 +8,17 @@ import os.path as osp
 from glob import glob
 import os
 
+
+def get_file_name(file):
+    # file = '/aaa/bbb/1050345\\050.png'  return /aaa/bbb/1050345 050
+    file = file.replace('\\', '/')
+    d_list = file.rsplit('/', maxsplit=1)
+    path = d_list[0]
+    file_text = d_list[-1]
+    name = file_text.split('.')[0]
+
+    return path, name
+
 class DatasetLoader(Dataset):
     def __init__(self, data_lr, data_hr, size_w, size_h, scale,n_frames,interval_list,border_mode,random_reverse=False):
         super(DatasetLoader, self).__init__()
@@ -33,32 +44,22 @@ class DatasetLoader(Dataset):
         self.border_mode = border_mode
         self.random_reverse = random_reverse
 
-    def _get_file_name(self,file):
-        # file = '/aaa/bbb/1050345\\050.png'  return /aaa/bbb/1050345 050
-        file = file.replace('\\', '/')
-        d_list = file.rsplit('/', maxsplit=1)
-        path = d_list[0]
-        file_text = d_list[-1]
-        name = file_text.split('.')[0]
-
-        return path, name
-
     def __getitem__(self, index):
         try:
             lr_file = self.lr_list[index]
             hr_file = self.hr_list[index]
             interval = random.choice(self.interval_list)
-            lr_path,lr_name = self._get_file_name(lr_file)
-            hr_path, _ = self._get_file_name(hr_file)
+            lr_path,lr_name = get_file_name(lr_file)
+            hr_path, _ = get_file_name(hr_file)
             center_frame_idx = int(lr_name)
 
             if self.border_mode:
                 direction = 1  # 1: forward; 0: backward
                 if self.random_reverse and random.random() < 0.5:
                     direction = random.choice([0, 1])
-                if center_frame_idx + interval * (self.n_frames - 1) > 99:
+                if center_frame_idx + interval * (self.n_frames - 1) > 100:
                     direction = 0
-                elif center_frame_idx - interval * (self.n_frames - 1) < 0:
+                elif center_frame_idx - interval * (self.n_frames - 1) < 1:
                     direction = 1
                 # get the neighbor list
                 if direction == 1:
@@ -69,8 +70,8 @@ class DatasetLoader(Dataset):
                         range(center_frame_idx, center_frame_idx - interval * self.n_frames, -interval))
                 file_text = '{:03d}.png'.format(neighbor_list[0])
             else:
-                while (center_frame_idx + self.half_N_frames * interval > 99) or (center_frame_idx - self.half_N_frames * interval < 0):
-                    center_frame_idx = random.randint(0, 99)
+                while (center_frame_idx + self.half_N_frames * interval > 100) or (center_frame_idx - self.half_N_frames * interval < 1):
+                    center_frame_idx = random.randint(1, 100)
                 # get the neighbor list
                 neighbor_list = list(range(center_frame_idx - self.half_N_frames * interval,
                                            center_frame_idx + self.half_N_frames * interval + 1, interval))
@@ -133,17 +134,52 @@ class DatasetLoader(Dataset):
 
 
 class EvalDataset(Dataset):
-    def __init__(self, test_lr):
+    def __init__(self, test_lr,n_frames,interval_list):
         super(EvalDataset, self).__init__()
-        self.test_lr = test_lr
+        file_name = sorted(os.listdir(test_lr))
+        lr_list = []
+        for one in file_name:
+            lr_tmp = sorted(glob(osp.join(test_lr, one, '*.png')))
+            lr_list.extend(lr_tmp)
 
-    def __getitem__(self, idx):
-        img_file = self.test_lr[idx]
-        img = cv2.imread(img_file, cv2.IMREAD_COLOR)
-        img = img * 1.0
-        # BGR -> RGB : [2, 1, 0]     HWC to CHW : (2, 0, 1)
-        img = torch.from_numpy(np.transpose(img[:, :, [2, 1, 0]], (2, 0, 1))).float()
-        return img,img_file
+        self.lr_list = lr_list
+        self.interval_list = interval_list
+        self.n_frames = n_frames
+        self.half_N_frames = n_frames // 2
 
+    def __getitem__(self, index):
+        lr_file = self.lr_list[index]
+        interval = random.choice(self.interval_list)
+        lr_path, lr_name = get_file_name(lr_file)
+        center_frame_idx = int(lr_name)
+
+        direction = 1
+        if center_frame_idx + interval * (self.n_frames - 1) > 100:
+            direction = 0
+        elif center_frame_idx - interval * (self.n_frames - 1) < 1:
+            direction = 1
+        # get the neighbor list
+        if direction == 1:
+            neighbor_list = list(
+                range(center_frame_idx, center_frame_idx + interval * self.n_frames, interval))
+        else:
+            neighbor_list = list(
+                range(center_frame_idx, center_frame_idx - interval * self.n_frames, -interval))
+
+        #### get lr images
+        lr_data_list = []
+        for v in neighbor_list:
+            lr_data_path = osp.join(lr_path, '{:03d}.png'.format(v))
+            lr_data = util.read_img(lr_data_path)
+            lr_data_list.append(lr_data)
+
+        # stack lr images to NHWC, N is the frame number
+        img_lrs = np.stack(lr_data_list, axis=0)
+        # BGR to RGB,
+        img_lrs = img_lrs[:, :, :, [2, 1, 0]]
+        # HWC to CHW, numpy to tensor
+        img_lrs = torch.from_numpy(np.ascontiguousarray(np.transpose(img_lrs, (0, 3, 1, 2)))).float()
+
+        return {'LRs': img_lrs, 'files': lr_file}
     def __len__(self):
-        return len(self.test_lr)
+        return len(self.lr_list)

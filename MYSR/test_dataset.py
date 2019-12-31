@@ -1,10 +1,9 @@
-import os
-from glob import glob
+import utils as util
 import argparse
 from torch.utils.data import DataLoader
 import numpy as np
 
-from dataloderB import DatasetLoader
+from dataloderRCAN3D import DatasetLoader
 
 
 def test(args):
@@ -16,45 +15,41 @@ def test(args):
 
     for i, train_data in enumerate(train_loader):
         img_lrs = train_data['LRs']
-        img_hr = train_data['HR']
+        img_hrs = train_data['HRs']
         print(img_lrs.shape)
-        print(img_hr.shape)
+        print(img_hrs.shape)
 
 
-        show(img_lrs,img_hr)
+        show(img_lrs,img_hrs)
 
         if i>=0:
             break
 
-def show(img_lrs,img_hr):
+add_mean = util.MeanShift(sign=1)
+def show(img_lrs,img_hrs):
     fig = plt.figure()
-    sub_img = fig.add_subplot(231)
-    sub_img.imshow(get_show_data(img_hr[0, :, :, :]))
-    sub_img.set_title('hr')
+    hr_data = img_hrs[0, :,:, :, :]
+    lr_data = img_lrs[0, :, :, :, :]
+    hr_data = hr_data.permute(1, 0, 2, 3)
+    lr_data = lr_data.permute(1, 0, 2, 3)
+    hr_data = add_mean(hr_data)
+    lr_data = add_mean(lr_data)
 
-    sub_img = fig.add_subplot(234)
-    sub_img.imshow(get_show_data(img_lrs[0, 0, :, :, :]))
-    sub_img.set_title('0')
-
-    sub_img = fig.add_subplot(232)
-    sub_img.imshow(get_show_data(img_lrs[0, 1, :, :, :]))
-    sub_img.set_title('1')
-
-    sub_img = fig.add_subplot(235)
-    sub_img.imshow(get_show_data(img_lrs[0, 2, :, :, :]))
-    sub_img.set_title('2')
-
-    sub_img = fig.add_subplot(233)
-    sub_img.imshow(get_show_data(img_lrs[0, 3, :, :, :]))
-    sub_img.set_title('3')
-
-    sub_img = fig.add_subplot(236)
-    sub_img.imshow(get_show_data(img_lrs[0, 4, :, :, :]))
-    sub_img.set_title('4')
+    for i in range(6):
+        sub_img = fig.add_subplot(231+i)
+        sub_img.imshow(get_show_data(hr_data[i,:, :, :]))
+        sub_img.set_title('hr%d'%i)
     plt.show()
+
+    fig = plt.figure()
+    for i in range(6):
+        sub_img = fig.add_subplot(231 + i)
+        sub_img.imshow(get_show_data(lr_data[i,:, :, :]))
+        sub_img.set_title('lr%d'%i)
+    plt.show()
+
 def get_show_data(d):
     hr = d.numpy()
-    hr *= 255
     hr = np.clip(hr, 0.0, 255.0).astype(np.uint8)
     hr = np.transpose(hr, (1, 2, 0))
     return hr
@@ -70,7 +65,7 @@ if __name__ == '__main__':
     parser.add_argument('--workers', default=1, type=int)
     parser.add_argument('--batch_size', default=1, type=int)
     parser.add_argument('--scale', default=4, type=int)
-    parser.add_argument('--frame_interval', default=[0,1,3,5,7] , type=int, nargs='+')
+    parser.add_argument('--frame_interval', default=[0,1,3,5,7,9] , type=int, nargs='+')
     parser.add_argument('--border_mode', default=True, type=bool)
     parser.add_argument('--random_reverse', default=True, type=bool)
 

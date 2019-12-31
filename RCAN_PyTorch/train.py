@@ -14,7 +14,6 @@ from torch.autograd import Variable
 from model.rcan import RCAN
 from dataloder import  DatasetLoader
 from utils import  AverageMeter,psnr_cal
-from utils import Logger
 import sys
 import time
 
@@ -27,13 +26,12 @@ def one_epoch_train_tqdm(model,optimizer,criterion,data_len,train_loader,epoch,e
         t.set_description('epoch:{}/{} lr={}'.format(epoch, epochs - 1, lr))
 
         for data in train_loader:
-            data_x, data_y = Variable(data[0]), Variable(data[1], requires_grad=False)
+            # data_x, data_y = Variable(data[0]), Variable(data[1], requires_grad=False)
+            # data_x = data_x.type(torch.FloatTensor)
+            # data_y = data_y.type(torch.FloatTensor)
 
-            data_x = data_x.type(torch.FloatTensor)
-            data_y = data_y.type(torch.FloatTensor)
-
-            data_x = data_x.cuda()
-            data_y = data_y.cuda()
+            data_x = data[0].cuda()
+            data_y = data[1].cuda()
 
             pred = model(data_x)
             # pix loss
@@ -72,11 +70,12 @@ def one_epoch_train_logger(model,optimizer,criterion,data_len,train_loader,epoch
     for iteration, data in enumerate(train_loader):
         data_time.update(time.time() - end)
 
-        data_x, data_y = Variable(data[0]), Variable(data[1], requires_grad=False)
-        data_x = data_x.type(torch.FloatTensor)
-        data_y = data_y.type(torch.FloatTensor)
-        data_x = data_x.cuda()
-        data_y = data_y.cuda()
+        # data_x, data_y = Variable(data[0]), Variable(data[1], requires_grad=False)
+        # data_x = data_x.type(torch.FloatTensor)
+        # data_y = data_y.type(torch.FloatTensor)
+
+        data_x = data[0].cuda()
+        data_y = data[1].cuda()
 
         pred = model(data_x)
         # pix loss
@@ -114,8 +113,6 @@ def one_epoch_train_logger(model,optimizer,criterion,data_len,train_loader,epoch
     return losses,psnrs
 
 def main(args):
-    sys.stdout = Logger(os.path.join(args.logs_dir, 'log_rcan.txt'))
-
     print("===> Loading datasets")
     file_name = sorted(os.listdir(args.data_lr))
     lr_list = []
@@ -144,11 +141,12 @@ def main(args):
     torch.cuda.manual_seed(args.seed)
     cudnn.benchmark = True
 
-    device_ids = list(range(args.gpus))
     model = RCAN(args)
     criterion = nn.L1Loss(reduction='sum')
 
     print("===> Setting GPU")
+    gups = args.gpus if args.gpus != 0 else torch.cuda.device_count()
+    device_ids = list(range(gups))
     model = nn.DataParallel(model, device_ids=device_ids)
     model = model.cuda()
     criterion = criterion.cuda()
@@ -157,32 +155,28 @@ def main(args):
     # optionally resume from a checkpoint
     if args.resume:
         if os.path.isdir(args.resume):
-            #获取目录中最后一个
-            pth_list = sorted( glob(os.path.join(args.resume, '*.pth')) )
-            if len(pth_list)>0:
+            # 获取目录中最后一个
+            pth_list = sorted(glob(os.path.join(args.resume, '*.pth')))
+            if len(pth_list) > 0:
                 args.resume = pth_list[-1]
         if os.path.isfile(args.resume):
             print("=> loading checkpoint '{}'".format(args.resume))
             checkpoint = torch.load(args.resume)
 
-            start_epoch = checkpoint['epoch']+1
+            start_epoch = checkpoint['epoch'] + 1
             state_dict = checkpoint['state_dict']
+
             new_state_dict = OrderedDict()
             for k, v in state_dict.items():
                 namekey = 'module.' + k  # remove `module.`
                 new_state_dict[namekey] = v
             model.load_state_dict(new_state_dict)
-
-            #如果文件中有lr，则不用启动参数
+            # 如果文件中有lr，则不用启动参数
             args.lr = checkpoint.get('lr', args.lr)
-
-        else:
-            print("=> no checkpoint found at '{}'".format(args.resume))
-
-    if args.start_epoch != 0:
-        #如果设置了 start_epoch 则不用checkpoint中的epoch参数
-        start_epoch = args.start_epoch
-
+        # 如果设置了 start_epoch 则不用checkpoint中的epoch参数
+        start_epoch = args.start_epoch if args.start_epoch != 0 else start_epoch
+    #如果use_current_lr大于0 测代替作为lr
+    args.lr = args.use_current_lr if args.use_current_lr > 0 else args.lr
 
     print("===> Setting Optimizer")
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
@@ -191,8 +185,10 @@ def main(args):
     print("===> Training")
     for epoch in range(start_epoch, args.epochs):
         adjust_lr(optimizer, epoch)
-
-        losses, psnrs = one_epoch_train_logger(model, optimizer, criterion, data_len, train_loader, epoch, args.epochs, args.batch_size, optimizer.param_groups[0]["lr"])
+        if args.use_tqdm == 1:
+            losses, psnrs = one_epoch_train_tqdm(model, optimizer, criterion, data_len, train_loader, epoch,args.epochs, args.batch_size, optimizer.param_groups[0]["lr"])
+        else:
+            losses, psnrs = one_epoch_train_logger(model, optimizer, criterion, data_len, train_loader, epoch, args.epochs, args.batch_size, optimizer.param_groups[0]["lr"])
 
         # save model
         model_out_path = os.path.join(args.checkpoint,"model_epoch_%04d_rcan_loss_%.3f_psnr_%.3f.pth"%(epoch,losses.avg,psnrs.avg) )
@@ -222,13 +218,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # model parameter
     parser.add_argument('--scale', default=4, type=int)
-    parser.add_argument('--patch_size', default=64, type=int)
-    parser.add_argument('--batch_size', default=32, type=int)
-    parser.add_argument('--step_batch_size', default=1, type=int)
+    parser.add_argument('--patch_size', default=128, type=int)
+    parser.add_argument('--batch_size', default=36, type=int)
     parser.add_argument('--workers', default=32, type=int)
-    parser.add_argument('--gpus', type=int, default=1)
+    parser.add_argument('--gpus', type=int, default=0)
     parser.add_argument('--seed', default=123, type=int)
     parser.add_argument('--lr', type=float, default=1e-4)
+    parser.add_argument('--use_current_lr', type=float, default=-1)
     parser.add_argument('--weight_decay', type=float, default=1e-4)
     parser.add_argument("--start_epoch", default=0, type=int)
     parser.add_argument('--epochs', type=int, default=40)
@@ -241,7 +237,7 @@ if __name__ == '__main__':
                         help='residual scaling')
     parser.add_argument('--rgb_range', type=int, default=255,
                         help='maximum value of RGB')
-    parser.add_argument('--n_resgroups', type=int, default=10,
+    parser.add_argument('--n_resgroups', type=int, default=12,
                         help='number of residual groups')
     parser.add_argument('--reduction', type=int, default=16,
                         help='number of feature maps reduction')
@@ -250,13 +246,11 @@ if __name__ == '__main__':
     parser.add_argument('--data-lr', type=str, metavar='PATH',default='train_lr')
     parser.add_argument('--data-hr', type=str, metavar='PATH',default='train_hr')
 
-    parser.add_argument('--logs-dir', type=str, default='logs')
-
     # check point
     parser.add_argument("--resume", default='checkpoint', type=str)
     parser.add_argument("--checkpoint", default='checkpoint', type=str)
     parser.add_argument('--print_freq', default=100, type=int)
-
+    parser.add_argument('--use_tqdm', default=0, type=int)
     args = parser.parse_args()
     main(args)
 
@@ -266,11 +260,9 @@ if __name__ == '__main__':
 
     #python3 train.py
 
-    #python3 train.py --data-lr train_lr --data-hr train_hr --batch_size 32 --workers 32 --epochs 40 --resume checkpoint/model_epoch_5_rcan.pth --start_epoch 6
+    #python3 train.py  --batch_size 32 --use_tqdm 1
 
     #python train.py --data-lr J:/AI+4K/pngs/X4 --data-hr J:/AI+4K/pngs/gt --batch_size 4 --workers 4 --epochs 40
 
 
     # nvidia-smi
-
-    #tail -10f logs/log_rcan.txt

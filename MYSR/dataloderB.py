@@ -8,8 +8,30 @@ import os.path as osp
 from glob import glob
 import os
 
+
+def read_img(file):
+    img = cv2.imread(file)  # BGR
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = img.astype(np.float32)
+    return img
+
+def getNeighbor(center_frame_idx, n_frames, interval):
+    min_frame_id = 1
+    max_frame_id = 100
+    half = n_frames // 2
+    neighbor_list = list(range(center_frame_idx - half * interval, center_frame_idx +half * interval + 1, interval))
+    if neighbor_list[0]<min_frame_id:
+        for i in range(half):
+            neighbor_list[i] = neighbor_list[-1 - i]
+    if neighbor_list[-1] > max_frame_id:
+        for i in range(half):
+            neighbor_list[half + 1 + i] = neighbor_list[half - 1 - i]
+
+
+    return neighbor_list
+
 class DatasetLoader(Dataset):
-    def __init__(self, data_lr, data_hr, size_w, size_h, scale,frame_interval,border_mode,random_reverse=False):
+    def __init__(self, data_lr, data_hr, patch_size, scale,n_frames,interval_list,random_reverse):
         super(DatasetLoader, self).__init__()
         file_name = sorted(os.listdir(data_lr))
         lr_list = []
@@ -24,90 +46,45 @@ class DatasetLoader(Dataset):
 
         self.lr_list = lr_list
         self.hr_list = hr_list
-        self.size_w = size_w
-        self.size_h = size_h
+        self.patch_size = patch_size
         self.scale = scale
-        self.frame_interval = frame_interval
-        self.n_frames = len(frame_interval)
-        self.half_N_frames = self.n_frames // 2
-        self.border_mode = border_mode
+        self.n_frames = n_frames
+        self.interval_list = interval_list
         self.random_reverse = random_reverse
-
-    def _get_file_name(self,file):
-        # file = '/aaa/bbb/1050345\\050.png'  return /aaa/bbb/1050345 050
-        file = file.replace('\\', '/')
-        d_list = file.rsplit('/', maxsplit=1)
-        path = d_list[0]
-        file_text = d_list[-1]
-        name = file_text.split('.')[0]
-        return path, name
-
 
     def __getitem__(self, index):
         try:
             lr_file = self.lr_list[index]
             hr_file = self.hr_list[index]
-            lr_path,lr_name = self._get_file_name(lr_file)
-            hr_path, _ = self._get_file_name(hr_file)
+            interval = random.choice(self.interval_list)
+            lr_path,lr_name = util.get_file_name(lr_file)
+            hr_path, _ = util.get_file_name(hr_file)
             center_frame_idx = int(lr_name)
-
-            if self.border_mode:
-                direction = 1  # 1: forward; 0: backward
-                if self.random_reverse and random.random() < 0.5:
-                    direction = random.choice([0, 1])
-                if center_frame_idx + sum(self.frame_interval) > 99:
-                    direction = 0
-                elif center_frame_idx - sum(self.frame_interval) < 0:
-                    direction = 1
-                # get the neighbor list
-                if direction == 1:
-                    neighbor_list = [center_frame_idx + sum(self.frame_interval[0:i+1]) for i in range(len(self.frame_interval))]
-                else:
-                    neighbor_list = [center_frame_idx - sum(self.frame_interval[0:i + 1]) for i in
-                                     range(len(self.frame_interval))]
-                file_text = '{:03d}.png'.format(neighbor_list[0])
-            else:
-                while (center_frame_idx+sum(self.frame_interval[self.half_N_frames:]) > 99) or (center_frame_idx-sum(self.frame_interval[:self.half_N_frames+1]) < 0):
-                    center_frame_idx = random.randint(0, 99)
-                # get the neighbor list
-                neighbor_list = []
-                i = center_frame_idx
-                for x in self.frame_interval[0:self.half_N_frames]:
-                    i -= x
-                    neighbor_list.append(i)
+            neighbor_list = getNeighbor(center_frame_idx,self.n_frames,interval)
+            if self.random_reverse and random.random() < 0.5:
                 neighbor_list.reverse()
-                neighbor_list.append(center_frame_idx)
-                i = center_frame_idx
-                for x in self.frame_interval[self.half_N_frames + 1:]:
-                    i += x
-                    neighbor_list.append(i)
-
-                if self.random_reverse and random.random() < 0.5:
-                    neighbor_list.reverse()
-                file_text = '{:03d}.png'.format(neighbor_list[self.half_N_frames])
-
-
-            #### get the hr image (as the center frame)
-            hr_data_path = osp.join(hr_path, file_text)
-            print(hr_data_path,center_frame_idx, neighbor_list)
-            hr_data = util.read_img(hr_data_path)
+            file_text = '{:03d}.png'.format(center_frame_idx)
 
             #### get lr images
             lr_data_list = []
             for v in neighbor_list:
                 lr_data_path = osp.join(lr_path, '{:03d}.png'.format(v))
-                lr_data = util.read_img(lr_data_path)
-                lr_data_list.append(lr_data)
+                lr_data_list.append(read_img(lr_data_path))
+
+            #### get hr images
+            hr_data_path = osp.join(hr_path, file_text)
+            hr_data = read_img(hr_data_path)
+
 
             # randomly crop
             height, width, channel = hr_data.shape
-            hr_size_w,hr_size_h = self.size_w * self.scale, self.size_h * self.scale
+            hr_size_w,hr_size_h = self.patch_size * self.scale, self.patch_size * self.scale
             lr_height = height // self.scale
             lr_width = width // self.scale
 
-            rnd_h = random.randint(0, max(0, lr_height - self.size_h))
-            rnd_w = random.randint(0, max(0, lr_width - self.size_w))
-            img_lr_list = [one_data[rnd_h:rnd_h + self.size_h, rnd_w:rnd_w + self.size_w, :] for one_data in lr_data_list]
+            rnd_h = random.randint(0, max(0, lr_height - self.patch_size))
+            rnd_w = random.randint(0, max(0, lr_width - self.patch_size))
+            img_lr_list = [one_data[rnd_h:rnd_h + self.patch_size, rnd_w:rnd_w + self.patch_size, :] for one_data in lr_data_list]
 
             rnd_h_hr, rnd_w_hr = int(rnd_h * self.scale), int(rnd_w * self.scale)
             img_hr = hr_data[rnd_h_hr:rnd_h_hr + hr_size_h, rnd_w_hr:rnd_w_hr + hr_size_w, :]
@@ -122,10 +99,10 @@ class DatasetLoader(Dataset):
             # stack lr images to NHWC, N is the frame number
             img_lrs = np.stack(img_lr_list, axis=0)
 
-            #HWC to CHW, numpy to tensor
+            # HWC to CHW, numpy to tensor
             img_hr = torch.from_numpy(np.ascontiguousarray(np.transpose(img_hr, (2, 0, 1)))).float()
-            img_lrs = torch.from_numpy(np.ascontiguousarray(np.transpose(img_lrs,(0, 3, 1, 2)))).float()
-
+            # img_lrs = [torch.from_numpy(np.ascontiguousarray(np.transpose(img, (2, 0, 1)))).float() for img in img_lr_list]
+            img_lrs = torch.from_numpy(np.ascontiguousarray(np.transpose(img_lrs, (0, 3, 1, 2)))).float()
         except Exception as e:
             random_sum = random.randrange(0, self.__len__())
             return self.__getitem__(random_sum)
