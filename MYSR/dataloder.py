@@ -3,12 +3,25 @@ import numpy as np
 import cv2
 import torch
 from torch.utils.data import Dataset
-from utils import horizontal_flip
+import utils as util
 import os
+import os.path as osp
+from glob import glob
 
 class DatasetLoader(Dataset):
-    def __init__(self, lr_list, hr_list, patch_size, scale):
+    def __init__(self, data_lr, data_hr, patch_size, scale=4):
         super(DatasetLoader, self).__init__()
+        file_name = sorted(os.listdir(data_lr))
+        lr_list = []
+        hr_list = []
+        for one in file_name:
+            lr_tmp = sorted(glob(osp.join(data_lr, one, '*.png')))
+            lr_list.extend(lr_tmp)
+            hr_tmp = sorted(glob(osp.join(data_hr, one, '*.png')))
+            if len(hr_tmp) != 100:
+                print(one)
+            hr_list.extend(hr_tmp)
+
         self.lr_list = lr_list
         self.hr_list = hr_list
         self.patch_size = patch_size
@@ -21,7 +34,7 @@ class DatasetLoader(Dataset):
 
             # get the GT image (as the center frame)
             hr_data = cv2.imread(hr_file)
-            hr_data = cv2.cvtColor(hr_data, cv2.COLOR_BGR2RGB)
+            hr_data = cv2.cvtColor(hr_data, cv2.COLOR_BGR2YCrCb)
             hr_data = np.array(hr_data)
             hr_data = hr_data.astype(np.float32)
             height, width, channel = hr_data.shape
@@ -29,7 +42,7 @@ class DatasetLoader(Dataset):
 
             # get LR image
             lr_data = cv2.imread(lr_file)
-            lr_data = cv2.cvtColor(lr_data, cv2.COLOR_BGR2RGB)
+            lr_data = cv2.cvtColor(lr_data, cv2.COLOR_BGR2YCrCb)
             lr_data = np.array(lr_data)
             lr_data = lr_data.astype(np.float32)
 
@@ -44,9 +57,14 @@ class DatasetLoader(Dataset):
             img_gt = hr_data[rnd_h_hr:rnd_h_hr + gt_size, rnd_w_hr:rnd_w_hr + gt_size, :]
 
             # augmentation - flip, rotate
-            axis1 = np.random.randint(low=-1, high=3)
-            img_lr = horizontal_flip(img_lr, axis=axis1)
-            img_gt = horizontal_flip(img_gt, axis=axis1)
+            # axis1 = np.random.randint(low=-1, high=3)
+            # img_lr = util.horizontal_flip(img_lr, axis=axis1)
+            # img_gt = util.horizontal_flip(img_gt, axis=axis1)
+
+            img_lr,img_gt = util.augment([img_lr,img_gt], hflip=True, rot=True)
+
+
+
 
             # HWC to CHW, numpy to tensor
             img_gt = torch.from_numpy(np.ascontiguousarray(np.transpose(img_gt, (2, 0, 1)))).float()
@@ -62,17 +80,29 @@ class DatasetLoader(Dataset):
         return len(self.lr_list)
 
 
+
 class EvalDataset(Dataset):
-    def __init__(self, test_lr):
+    def __init__(self, test_lr,outputs_dir):
         super(EvalDataset, self).__init__()
-        self.test_lr = test_lr
+        file_names = sorted(os.listdir(test_lr))
+        lr_list = []
+        for one in file_names:
+            dst_dir = os.path.join(outputs_dir, one)
+            if os.path.exists(dst_dir) and len(os.listdir(dst_dir)) == 100:
+                continue
+            lr_tmp = sorted(glob(os.path.join(test_lr, one, '*.png')))
+            lr_list.extend(lr_tmp)
+
+        self.test_lr = lr_list
 
     def __getitem__(self, idx):
         img_file = self.test_lr[idx]
-        img = cv2.imread(img_file, cv2.IMREAD_COLOR)
+        img = cv2.imread(img_file)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+
         img = img * 1.0
-        # BGR -> RGB : [2, 1, 0]     HWC to CHW : (2, 0, 1)
-        img = torch.from_numpy(np.transpose(img[:, :, [2, 1, 0]], (2, 0, 1))).float()
+        # HWC to CHW : (2, 0, 1)
+        img = torch.from_numpy(np.ascontiguousarray(np.transpose(img, (2, 0, 1)))).float()
         return img,img_file
 
     def __len__(self):

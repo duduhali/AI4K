@@ -10,29 +10,20 @@ import torch.optim as optim
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
-
-from model.rcan import RCAN
-from dataloder import  DatasetLoader
-from utils import  AverageMeter,psnr_cal
-import sys
 import time
+from model.SRB import SRB
+from dataloderB import  DatasetLoader
+import utils as util
 
 
 def one_epoch_train_tqdm(model,optimizer,criterion,data_len,train_loader,epoch,epochs,batch_size,lr):
-    model.train()
-    losses = AverageMeter()
-    psnrs = AverageMeter()
+    losses = util.AverageMeter()
+    psnrs = util.AverageMeter()
     with tqdm(total=(data_len -  data_len%batch_size)) as t:
         t.set_description('epoch:{}/{} lr={}'.format(epoch, epochs - 1, lr))
-
         for data in train_loader:
-            # data_x, data_y = Variable(data[0]), Variable(data[1], requires_grad=False)
-            # data_x = data_x.type(torch.FloatTensor)
-            # data_y = data_y.type(torch.FloatTensor)
-
-            data_x = data[0].cuda()
-            data_y = data[1].cuda()
-
+            data_x = data['LRs'].cuda()
+            data_y = data['HR'].cuda()
             pred = model(data_x)
             # pix loss
             loss = criterion(pred, data_y)
@@ -47,11 +38,9 @@ def one_epoch_train_tqdm(model,optimizer,criterion,data_len,train_loader,epoch,e
             data_y = data_y.cpu()
             data_y = data_y.numpy().astype(np.float32)
 
-            psnr = psnr_cal(pred, data_y)
             mean_loss = loss.item() / (args.batch_size * args.n_colors * ((args.patch_size * args.scale) ** 2))
             losses.update(mean_loss)
-            psnrs.update(psnr)
-
+            psnrs.update(util.psnr_cal_0_255(pred, data_y))
             t.set_postfix(loss='Loss: {losses.val:.3f} ({losses.avg:.3f})'
                                ' PNSR: {psnrs.val:.3f} ({psnrs.avg:.3f})'
                           .format(losses=losses, psnrs=psnrs))
@@ -60,39 +49,34 @@ def one_epoch_train_tqdm(model,optimizer,criterion,data_len,train_loader,epoch,e
     return losses, psnrs
 
 def one_epoch_train_logger(model,optimizer,criterion,data_len,train_loader,epoch,epochs,batch_size,lr):
-    model.train()
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
-    losses = AverageMeter()
-    psnrs = AverageMeter()
-
+    batch_time = util.AverageMeter()
+    data_time = util.AverageMeter()
+    losses = util.AverageMeter()
+    psnrs = util.AverageMeter()
     end = time.time()
     for iteration, data in enumerate(train_loader):
         data_time.update(time.time() - end)
-
-        # data_x, data_y = Variable(data[0]), Variable(data[1], requires_grad=False)
-        # data_x = data_x.type(torch.FloatTensor)
-        # data_y = data_y.type(torch.FloatTensor)
-
-        data_x = data[0].cuda()
-        data_y = data[1].cuda()
+        data_x = data['LRs'].cuda()
+        data_y = data['HR'].cuda()
 
         pred = model(data_x)
         # pix loss
         loss = criterion(pred, data_y)
+
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
         pred = pred.cpu()
         pred = pred.detach().numpy().astype(np.float32)
+
         data_y = data_y.cpu()
         data_y = data_y.numpy().astype(np.float32)
-        psnr = psnr_cal(pred, data_y)
-        mean_loss = loss.item() / (args.batch_size * args.n_colors * ((args.patch_size * args.scale) ** 2))
 
+        mean_loss = loss.item() / (args.batch_size * args.n_colors * ((args.patch_size * args.scale) ** 2))
         losses.update(mean_loss)
-        psnrs.update(psnr)
+        psnrs.update(util.psnr_cal_0_255(pred, data_y))
+
         batch_time.update(time.time() - end)
 
         end = time.time()
@@ -109,30 +93,14 @@ def one_epoch_train_logger(model,optimizer,criterion,data_len,train_loader,epoch
                   'PNSR: {psnrs.val:.3f} ({psnrs.avg:.3f})'
                   .format(epoch, epochs, iteration, data_len // batch_size, lr, show_time,
                           data_time=data_time,batch_time=batch_time,  losses=losses, psnrs=psnrs))
-            sys.stdout.flush()
+
     return losses,psnrs
 
 def main(args):
-    print("===> Loading datasets")
-    file_name = sorted(os.listdir(args.data_lr))
-    lr_list = []
-    hr_list = []
-    for one in file_name:
-        lr_tmp = sorted( glob(os.path.join(args.data_lr, one,'*.png')) )
-        lr_list.extend(lr_tmp)
-        hr_tmp = sorted( glob(os.path.join(args.data_hr, one,'*.png')) )
-        if len(hr_tmp) != 100:
-            print(one)
-        hr_list.extend(hr_tmp)
-
-
-    # lr_list = glob(os.path.join(args.data_lr, '*'))
-    # hr_list = glob(os.path.join(args.data_hr, '*'))
-
-    data_set = DatasetLoader(lr_list, hr_list, args.patch_size, args.scale)
+    data_set = DatasetLoader(args.data_lr, args.data_hr, args.patch_size, args.scale, args.n_frames, args.interval_list, args.random_reverse)
     data_len = len(data_set)
     train_loader = DataLoader(data_set, batch_size=args.batch_size, num_workers=args.workers, shuffle=True,
-                              pin_memory=True, drop_last=True)
+                              pin_memory=False, drop_last=True)
 
 
     print("===> Building model")
@@ -141,7 +109,9 @@ def main(args):
     torch.cuda.manual_seed(args.seed)
     cudnn.benchmark = True
 
-    model = RCAN(args)
+    model = SRB(args)
+    # if args.log:
+    #     print(model)
     criterion = nn.L1Loss(reduction='sum')
 
     print("===> Setting GPU")
@@ -150,6 +120,7 @@ def main(args):
     model = nn.DataParallel(model, device_ids=device_ids)
     model = model.cuda()
     criterion = criterion.cuda()
+
 
     start_epoch = args.start_epoch
     # optionally resume from a checkpoint
@@ -178,20 +149,30 @@ def main(args):
     #如果use_current_lr大于0 测代替作为lr
     args.lr = args.use_current_lr if args.use_current_lr > 0 else args.lr
 
+
     print("===> Setting Optimizer")
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
                            lr=args.lr, weight_decay=args.weight_decay, betas=(0.9, 0.999), eps=1e-08)
 
+    # record = []
     print("===> Training")
+    model.train()
     for epoch in range(start_epoch, args.epochs):
-        adjust_lr(optimizer, epoch)
+        adjust_lr(optimizer, epoch, args.lr_change)
         if args.use_tqdm == 1:
-            losses, psnrs = one_epoch_train_tqdm(model, optimizer, criterion, data_len, train_loader, epoch,args.epochs, args.batch_size, optimizer.param_groups[0]["lr"])
+            losses, psnrs = one_epoch_train_tqdm(model, optimizer, criterion, data_len, train_loader, epoch, args.epochs, args.batch_size, optimizer.param_groups[0]["lr"])
         else:
-            losses, psnrs = one_epoch_train_logger(model, optimizer, criterion, data_len, train_loader, epoch, args.epochs, args.batch_size, optimizer.param_groups[0]["lr"])
+            losses, psnrs = one_epoch_train_logger(model, optimizer, criterion, data_len, train_loader, epoch,
+                                                 args.epochs, args.batch_size, optimizer.param_groups[0]["lr"])
+
+        if args.log:
+            with open(args.log, 'a') as f:
+                f.write("epoch: %d/%d    loss:%.3f    psnr:%.3f\n"%(epoch, args.epochs, losses.avg, psnrs.avg))
+            if epoch+1 != args.epochs:
+                continue
 
         # save model
-        model_out_path = os.path.join(args.checkpoint,"model_epoch_%04d_rcan_loss_%.3f_psnr_%.3f.pth"%(epoch,losses.avg,psnrs.avg) )
+        model_out_path = os.path.join(args.checkpoint,"model_epoch_%04d_SRB_loss_%.3f_psnr_%.3f.pth"%(epoch,losses.avg,psnrs.avg) )
         if not os.path.exists(args.checkpoint):
             os.makedirs(args.checkpoint)
         torch.save({
@@ -201,13 +182,9 @@ def main(args):
         }, model_out_path)
 
 
-
-
-
-def adjust_lr(opt, epoch):
+def adjust_lr(opt, epoch, lr_change):
     scale = 0.1
-    # if epoch in [200, 300, 350]:
-    if epoch in [20, 30, 35]:
+    if epoch in lr_change:
         args.lr *= scale
         print('Change lr to {}'.format(args.lr))
         for param_group in opt.param_groups:
@@ -216,53 +193,60 @@ def adjust_lr(opt, epoch):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    # model parameter
+    parser.add_argument('--epochs', default=40, type=int)
+    parser.add_argument('--batch_size', default=30, type=int)
+    # dataset
+    parser.add_argument('--patch_size', default=64, type=int)
+    parser.add_argument('--data-lr', type=str, metavar='PATH', default='../train_lr')
+    parser.add_argument('--data-hr', type=str, metavar='PATH', default='../train_hr')
+    parser.add_argument('--workers', default=6, type=int)
     parser.add_argument('--scale', default=4, type=int)
-    parser.add_argument('--patch_size', default=128, type=int)
-    parser.add_argument('--batch_size', default=7, type=int)
-    parser.add_argument('--workers', default=14, type=int)
-    parser.add_argument('--gpus', type=int, default=0)
+    parser.add_argument('--n_frames', default=5, type=int)
+    parser.add_argument('--interval_list', default=[1, 2], type=int, nargs='+')
+    parser.add_argument('--random_reverse', default=True, type=bool)
+
+    parser.add_argument("--n_feats", type=int, default=64)
+    parser.add_argument("--n_res_blocks", type=int, default=16)
+    parser.add_argument('--n_resgroups', type=int, default=8)
+    parser.add_argument('--n_groups_3d', type=int, default=8)
+    parser.add_argument('--reduction', type=int, default=16)
+    parser.add_argument('--n_colors', type=int, default=3,help='number of color channels to use')
+    parser.add_argument('--rgb_range', type=int, default=255,help='maximum value of RGB')
+    parser.add_argument('--gpus', type=int, default=1)
     parser.add_argument('--seed', default=123, type=int)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--use_current_lr', type=float, default=-1)
     parser.add_argument('--weight_decay', type=float, default=1e-4)
     parser.add_argument("--start_epoch", default=0, type=int)
-    parser.add_argument('--epochs', type=int, default=40)
-    parser.add_argument("--n_res_blocks", type=int, default=20)
-    parser.add_argument("--n_feats", type=int, default=64)
-    parser.add_argument("--step", type=int, default=2)
-    parser.add_argument('--n_colors', type=int, default=3,
-                        help='number of color channels to use')
-    parser.add_argument('--res_scale', type=float, default=0.1,
-                        help='residual scaling')
-    parser.add_argument('--rgb_range', type=int, default=255,
-                        help='maximum value of RGB')
-    parser.add_argument('--n_resgroups', type=int, default=12,
-                        help='number of residual groups')
-    parser.add_argument('--reduction', type=int, default=16,
-                        help='number of feature maps reduction')
+    parser.add_argument('--lr_change', default=[20, 30, 35], type=int, nargs='+')
 
-    # path
-    parser.add_argument('--data-lr', type=str, metavar='PATH',default='train_lr')
-    parser.add_argument('--data-hr', type=str, metavar='PATH',default='train_hr')
-
-    # check point
-    parser.add_argument("--resume", default='checkpoint', type=str)
-    parser.add_argument("--checkpoint", default='checkpoint', type=str)
+    parser.add_argument('--resume', type=str, default='checkpoint')
+    parser.add_argument('--checkpoint', type=str, default='checkpoint')
     parser.add_argument('--print_freq', default=100, type=int)
     parser.add_argument('--use_tqdm', default=0, type=int)
+    parser.add_argument('--log', type=str, default='')
+
     args = parser.parse_args()
+
+    # args.data_lr = 'J:/2file/train_lr'
+    # args.data_hr = 'J:/2file/train_hr'
+    # args.epochs = 40
+    # args.batch_size = 4
+    # args.workers = 4
+    # args.resume = ''
+    # args.use_tqdm = 1
+    # args.checkpoint = 'checkpoint'
+    # args.log = 'log/SRB.txt'
+
     main(args)
 
-    # nohup python3 train.py>> output.log 2>&1 &
-    # ps -aux|grep train.py
+    # nohup python3 trainB.py>> output.log 2>&1 &
     # pgrep python3 | xargs kill -s 9
 
-    #python3 train.py
 
-    #python3 train.py  --batch_size 32 --use_tqdm 1
 
-    #python train.py --data-lr J:/AI+4K/pngs/X4 --data-hr J:/AI+4K/pngs/gt --batch_size 4 --workers 4 --epochs 40
+    #python3 trainB.py --use_tqdm 1
+
 
 
     # nvidia-smi

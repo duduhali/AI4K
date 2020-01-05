@@ -3,8 +3,13 @@ import numpy as np
 import cv2
 import torch
 from torch.utils.data import Dataset
-from utils import horizontal_flip
 import os
+
+
+def horizontal_flip(image, axis):
+    if axis != 2:
+        image = cv2.flip(image, axis)
+    return image
 
 class DatasetLoader(Dataset):
     def __init__(self, lr_list, hr_list, patch_size, scale):

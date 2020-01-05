@@ -71,7 +71,7 @@ if __name__ == '__main__':
     elif args.mode == 2:
         getVideoSize(args.video_path)  # 检测视频
 
-    # python3 img_blend2video.py
+    # python3 img_blend2video.py  --mode 1 --img-path --video-path
 
 
 

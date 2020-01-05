@@ -1,11 +1,10 @@
+## ECCV-2018-Image Super-Resolution Using Very Deep Residual Channel Attention Networks
+## https://arxiv.org/abs/1807.02758
 from model import common
-import torch
-import torchvision
+
 import torch.nn as nn
 
-
-
-# Channel Attention (CA) Layer
+## Channel Attention (CA) Layer
 class CALayer(nn.Module):
     def __init__(self, channel, reduction=16):
         super(CALayer, self).__init__()
@@ -24,10 +23,11 @@ class CALayer(nn.Module):
         y = self.conv_du(y)
         return x * y
 
-
-# Residual Channel Attention Block (RCAB)
+## Residual Channel Attention Block (RCAB)
 class RCAB(nn.Module):
-    def __init__(self, conv, n_feat, kernel_size, reduction, bias=True, bn=False, act=nn.ReLU(True), res_scale=1):
+    def __init__(
+        self, conv, n_feat, kernel_size, reduction,
+        bias=True, bn=False, act=nn.ReLU(True), res_scale=1):
 
         super(RCAB, self).__init__()
         modules_body = []
@@ -41,17 +41,19 @@ class RCAB(nn.Module):
 
     def forward(self, x):
         res = self.body(x)
-        # res = self.body(x).mul(self.res_scale)
+        #res = self.body(x).mul(self.res_scale)
         res += x
         return res
 
-
-# Residual Group (RG)
+## Residual Group (RG)
 class ResidualGroup(nn.Module):
     def __init__(self, conv, n_feat, kernel_size, reduction, act, res_scale, n_resblocks):
         super(ResidualGroup, self).__init__()
         modules_body = []
-        modules_body = [ RCAB(conv, n_feat, kernel_size, reduction, bias=True, bn=False, act=nn.ReLU(True), res_scale=1) for _ in range(n_resblocks)]
+        modules_body = [
+            RCAB(
+                conv, n_feat, kernel_size, reduction, bias=True, bn=False, act=nn.ReLU(True), res_scale=1) \
+            for _ in range(n_resblocks)]
         modules_body.append(conv(n_feat, n_feat, kernel_size))
         self.body = nn.Sequential(*modules_body)
 
@@ -60,32 +62,29 @@ class ResidualGroup(nn.Module):
         res += x
         return res
 
-
-# Residual Channel Attention Network (RCAN)
+## Residual Channel Attention Network (RCAN)
 class RCAN(nn.Module):
     def __init__(self, args, conv=common.default_conv):
         super(RCAN, self).__init__()
         
-        n_resgroups = args.n_resgroups      #10
-        n_res_blocks = args.n_res_blocks    #20
-        n_feats = args.n_feats              #64
+        n_resgroups = args.n_resgroups
+        n_resblocks = args.n_res_blocks
+        n_feats = args.n_feats
         kernel_size = 3
-        reduction = args.reduction          #16
+        reduction = args.reduction 
         scale = args.scale
         act = nn.ReLU(True)
         
         # RGB mean for DIV2K
-        rgb_mean = (0.4488, 0.4371, 0.4040)
-        rgb_std = (1.0, 1.0, 1.0)
-        self.sub_mean = common.MeanShift(args.rgb_range, rgb_mean, rgb_std) #rgb_range 255
+        self.sub_mean = common.MeanShift(args.rgb_range)
         
         # define head module
-        modules_head = [conv(args.n_colors, n_feats, kernel_size)] #n_colors 3
+        modules_head = [conv(args.n_colors, n_feats, kernel_size)]
 
         # define body module
         modules_body = [
             ResidualGroup(
-                conv, n_feats, kernel_size, reduction, act=act, res_scale=args.res_scale, n_resblocks=n_res_blocks) \
+                conv, n_feats, kernel_size, reduction, act=act, res_scale=args.res_scale, n_resblocks=n_resblocks) \
             for _ in range(n_resgroups)]
 
         modules_body.append(conv(n_feats, n_feats, kernel_size))
@@ -95,7 +94,7 @@ class RCAN(nn.Module):
             common.Upsampler(conv, scale, n_feats, act=False),
             conv(n_feats, args.n_colors, kernel_size)]
 
-        self.add_mean = common.MeanShift(args.rgb_range, rgb_mean, rgb_std, 1)
+        self.add_mean = common.MeanShift(args.rgb_range, sign=1)
 
         self.head = nn.Sequential(*modules_head)
         self.body = nn.Sequential(*modules_body)
@@ -138,29 +137,3 @@ class RCAN(nn.Module):
             missing = set(own_state.keys()) - set(state_dict.keys())
             if len(missing) > 0:
                 raise KeyError('missing keys in state_dict: "{}"'.format(missing))
-
-
-# Assume input range is [0, 1]
-class VGGFeatureExtractor(nn.Module):
-    def __init__(self, feature_layer=34, use_bn=False, device=torch.device("cuda")):
-        super(VGGFeatureExtractor, self).__init__()
-
-        if use_bn:
-            model = torchvision.models.vgg19_bn(pretrained=True)
-        else:
-            model = torchvision.models.vgg19(pretrained=True)
-
-        mean = torch.Tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(device)
-        std = torch.Tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(device)
-        self.register_buffer('mean', mean)
-        self.register_buffer('std', std)
-
-        self.features = nn.Sequential(*list(model.features.children())[:(feature_layer + 1)])
-        # No need to BP to variable
-        for k, v in self.features.named_parameters():
-            v.requires_grad = False
-
-    def forward(self, x):
-        x = (x - self.mean) / self.std
-        output = self.features(x)
-        return output

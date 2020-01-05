@@ -9,7 +9,7 @@ from tqdm import tqdm
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from glob import glob
-from model.rcan import RCAN
+from model.edsr import EDSR
 from dataloder import EvalDataset
 
 def eval_path(args):
@@ -21,9 +21,8 @@ def eval_path(args):
     torch.cuda.manual_seed(args.seed)
     cudnn.benchmark = True
 
-    gups = args.gpus if args.gpus != 0 else torch.cuda.device_count()
-    device_ids = list(range(gups))
-    model = RCAN(args)
+    device_ids = list(range(args.gpus))
+    model = EDSR(args)
     model = nn.DataParallel(model, device_ids=device_ids)
     model = model.cuda()
 
@@ -59,7 +58,7 @@ def eval_path(args):
     data_set = EvalDataset(lr_list)
     eval_loader = DataLoader(data_set, batch_size=args.batch_size,num_workers=args.workers)
 
-    with tqdm(total=(len(data_set))) as t:
+    with tqdm(total=(len(data_set) - len(data_set) % args.batch_size)) as t:
         for data in eval_loader:
             inputs,names = data
             inputs = inputs.cuda()
@@ -83,17 +82,18 @@ def eval_path(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--test_lr', type=str, default='test_lr')
-    parser.add_argument('--batch-size', type=int, default=4)
-    parser.add_argument('--workers', default=4, type=int)
+    parser.add_argument('--batch-size', type=int, default='8',help='Works when entering a directory')
+    parser.add_argument('--workers', default=8, type=int)
     parser.add_argument('--outputs-dir', default='output_img', type=str)
 
     parser.add_argument("--resume", default='checkpoint', type=str)
 
-    parser.add_argument('--gpus', type=int, default=0)
+    parser.add_argument('--gpus', type=int, default=1)
     parser.add_argument('--seed', type=int, default=123)
 
-    parser.add_argument('--n_resgroups', type=int, default=12,help='number of residual groups')
-    parser.add_argument("--n_res_blocks", type=int, default=20)
+    parser.add_argument('--n_resblocks', type=int, default=20,
+                        help='number of residual blocks')
+    parser.add_argument('--n_resgroups', type=int, default=10,help='number of residual groups')
     parser.add_argument("--n_feats", type=int, default=64)
     parser.add_argument('--reduction', type=int, default=16,help='number of feature maps reduction')
     parser.add_argument('--scale', default=4, type=int)
@@ -106,7 +106,8 @@ if __name__ == '__main__':
 
 
 
-    #python3 eval.py --batch-size 16 --workers 16
+    #python3 eval.py
 
 
-    #python3 eval.py --resume model_epoch_0026_rcan.pth --test_lr ../test_lr  --outputs-dir ../outputs  --batch-size 1 --workers 1
+    #python3 eval.py  --test_lr ../test_lr  --outputs-dir ../output_img
+    #python3 eval.py --test_lr ../test_lr  --outputs-dir ../output_img  --batch-size 4 --workers 4
