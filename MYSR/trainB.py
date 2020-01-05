@@ -194,7 +194,7 @@ def adjust_lr(opt, epoch, lr_change):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', default=40, type=int)
-    parser.add_argument('--batch_size', default=40, type=int)
+    parser.add_argument('--batch_size', default=30, type=int)
     # dataset
     parser.add_argument('--patch_size', default=64, type=int)
     parser.add_argument('--data-lr', type=str, metavar='PATH', default='../train_lr')
@@ -228,15 +228,15 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    args.data_lr = 'J:/2file/train_lr'
-    args.data_hr = 'J:/2file/train_hr'
-    args.epochs = 40
-    args.batch_size = 4
-    args.workers = 4
-    args.resume = ''
-    args.use_tqdm = 1
-    args.checkpoint = 'checkpoint'
-    args.log = 'log/SRB.txt'
+    # args.data_lr = 'J:/2file/train_lr'
+    # args.data_hr = 'J:/2file/train_hr'
+    # args.epochs = 40
+    # args.batch_size = 4
+    # args.workers = 4
+    # args.resume = ''
+    # args.use_tqdm = 1
+    # args.checkpoint = 'checkpoint'
+    # args.log = 'log/SRB.txt'
 
     main(args)
 

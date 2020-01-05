@@ -109,7 +109,7 @@ def one_epoch_train_logger(model,optimizer,criterion,data_len,train_loader,epoch
                   'PNSR: {psnrs.val:.3f} ({psnrs.avg:.3f})'
                   .format(epoch, epochs, iteration, data_len // batch_size, lr, show_time,
                           data_time=data_time,batch_time=batch_time,  losses=losses, psnrs=psnrs))
-
+            sys.stdout.flush()
     return losses,psnrs
 
 def main(args):
@@ -219,8 +219,8 @@ if __name__ == '__main__':
     # model parameter
     parser.add_argument('--scale', default=4, type=int)
     parser.add_argument('--patch_size', default=128, type=int)
-    parser.add_argument('--batch_size', default=36, type=int)
-    parser.add_argument('--workers', default=32, type=int)
+    parser.add_argument('--batch_size', default=7, type=int)
+    parser.add_argument('--workers', default=14, type=int)
     parser.add_argument('--gpus', type=int, default=0)
     parser.add_argument('--seed', default=123, type=int)
     parser.add_argument('--lr', type=float, default=1e-4)
